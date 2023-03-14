@@ -192,7 +192,14 @@ class DashboardFragment : Fragment() {
         thread.start()
     }
 
+    /**
+     * Schedules periodic updates using a Handler and an updateRunnable object that calls fetchForecast() and displayForecastData()
+     */
     private fun displayCurrentWeather() {
+        /**
+         * takes a date-time string and a Forecast object, and returns a weather condition and a drawable
+         * image based on the matching hour's weather code in the Forecast object.
+         */
         fun getWeatherCondition(dateTimeLocale: String, forecast: Forecast): Pair<String, Drawable?> {
             val h = forecast.hourly
 
@@ -263,7 +270,10 @@ class DashboardFragment : Fragment() {
             return Pair("Unknown weather", null)
         }
 
-        // This code gets weather forecast data from Open Meteo API using internet access.
+        /**
+         * takes a date-time string and a Forecast object, and returns a weather condition and a drawable image
+         * based on the matching hour's weather code in the Forecast object.
+         */
         suspend fun fetchForecast(latitude: Double, longitude: Double): Forecast {
             return withContext(Dispatchers.IO) {
                 val client = OkHttpClient()
@@ -276,6 +286,10 @@ class DashboardFragment : Fragment() {
             }
         }
 
+        /**
+         * updates the UI with the current weather information by looping through the hourly forecast data
+         * and using getWeatherCondition() to update the temperature, weather condition, and drawable image.
+         */
         fun displayForecastData(forecast: Forecast) {
             val h = forecast.hourly
 
@@ -325,6 +339,9 @@ class DashboardFragment : Fragment() {
         updateRunnable.run()
     }
 
+    /**
+     * Uses reverse geocoding to find the most common location address based on the device's current location.
+     */
     private fun findMyLocationAddress() {
         fun getMostCommonLocation(addresses: List<Address>): String {
             val localities = mutableMapOf<String, Int>()

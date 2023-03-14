@@ -14,9 +14,9 @@
 
     <fragment
         android:id="@+id/SecondFragment"
-        android:name="com.minerva.jeeply.SecondFragment"
+        android:name="com.minerva.jeeply.RoutesFragment"
         android:label="@string/second_fragment_label"
-        tools:layout="@layout/fragment_second">
+        tools:layout="@layout/fragment_routes">
     </fragment>
 
     <fragment

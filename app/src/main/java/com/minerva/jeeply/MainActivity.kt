@@ -34,7 +34,7 @@ class MainActivity : AppCompatActivity() {
                     selectedFragment = DashboardFragment()
                 }
                 R.id.routes -> {
-                    selectedFragment = SecondFragment()
+                    selectedFragment = RoutesFragment()
                 }
                 R.id.journeys -> {
                     selectedFragment = ThirdFragment()
