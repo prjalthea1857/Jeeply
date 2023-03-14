@@ -116,17 +116,18 @@
                     android:textAlignment="inherit">
 
                     <TextView
+                        android:id="@+id/locationTextView"
                         style="@style/Widget.AppCompat.TextView.SpinnerItem"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_gravity="right"
                         android:fontFamily="@font/roboto"
                         android:gravity="bottom"
                         android:maxLines="1"
-                        android:text="Himamaylan, Negros Occidental"
+                        android:text="Tell me where I'm at?"
                         android:textAlignment="textEnd"
-                        android:textSize="18sp"
-                        app:autoSizeMaxTextSize="18sp"
+                        android:textSize="16sp"
+                        app:autoSizeMaxTextSize="16sp"
                         app:autoSizeMinTextSize="8sp"
                         app:autoSizeStepGranularity="2sp"
                         app:autoSizeTextType="uniform" />
@@ -139,7 +140,7 @@
                         android:fontFamily="@font/roboto_bold"
                         android:text="Looking up to the sky..."
                         android:textAlignment="textEnd"
-                        android:textSize="16sp" />
+                        android:textSize="14sp" />
 
                 </LinearLayout>
 

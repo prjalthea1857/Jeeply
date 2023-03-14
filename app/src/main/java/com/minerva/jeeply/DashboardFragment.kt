@@ -2,14 +2,18 @@ package com.minerva.jeeply
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.drawable.Drawable
+import android.location.Address
+import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -17,10 +21,12 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import com.google.android.gms.location.LocationListener
 import com.minerva.jeeply.databinding.FragmentDashboardBinding
 import com.minerva.jeeply.helper.JeeplyDatabaseHelper
 import com.minerva.jeeply.helper.Utility
@@ -77,6 +83,9 @@ class DashboardFragment : Fragment() {
 
         // Displays the current weather information.
         displayCurrentWeather()
+
+        // Finds the user current address.
+        findMyLocationAddress()
 
         /**
          * Require Internet Access - END
@@ -314,5 +323,62 @@ class DashboardFragment : Fragment() {
         }
 
         updateRunnable.run()
+    }
+
+    private fun findMyLocationAddress() {
+        fun getMostCommonLocation(addresses: List<Address>): String {
+            val localities = mutableMapOf<String, Int>()
+            val subAdminAreas = mutableMapOf<String, Int>()
+
+            // Iterate through the list of addresses and count the occurrences of each locality and sub-admin area
+            for (address in addresses) {
+                val locality = address.locality
+                if (locality != null) {
+                    localities[locality] = localities.getOrDefault(locality, 0) + 1
+                }
+
+                val subAdminArea = address.subAdminArea
+                if (subAdminArea != null) {
+                    subAdminAreas[subAdminArea] = subAdminAreas.getOrDefault(subAdminArea, 0) + 1
+                }
+            }
+
+            // Find the most common locality and sub-admin area
+            var mostCommonLocality: String? = null
+            var localityCount = 0
+            for ((locality, count) in localities) {
+                if (count > localityCount) {
+                    mostCommonLocality = locality
+                    localityCount = count
+                }
+            }
+
+            var mostCommonSubAdminArea: String? = null
+            var subAdminAreaCount = 0
+            for ((subAdminArea, count) in subAdminAreas) {
+                if (count > subAdminAreaCount) {
+                    mostCommonSubAdminArea = subAdminArea
+                    subAdminAreaCount = count
+                }
+            }
+
+            // Construct and return the text string
+            return when {
+                mostCommonLocality != null && mostCommonSubAdminArea != null ->
+                    "$mostCommonLocality, $mostCommonSubAdminArea"
+                mostCommonLocality != null -> mostCommonLocality
+                mostCommonSubAdminArea != null -> mostCommonSubAdminArea
+                else -> ""
+            }
+        }
+
+        // Use reverse geocoding to get the address
+        val geocoder = Geocoder(requireContext(), Locale.getDefault())
+        val addresses = geocoder.getFromLocation(utility.location.latitude, utility.location.longitude, 10)
+
+        if (addresses!!.isNotEmpty()) {
+            val address = getMostCommonLocation(addresses)
+            binding.locationTextView.text = address
+        }
     }
 }
