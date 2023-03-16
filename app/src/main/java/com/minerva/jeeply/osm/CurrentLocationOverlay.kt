@@ -12,20 +12,22 @@ import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
 import kotlin.math.cos
 
-class CurrentLocationOverlay(val context: Context, val mapView: MapView, val location: Location) : Overlay() {
-    private var marker: Marker? = null
-    private val circleFillPaint = Paint()
-    private val circleBorderPaint = Paint()
+class CurrentLocationOverlay(private val context: Context, mapView: MapView, private val location: Location) : Overlay() {
+    private val marker = Marker(mapView)
+    private val circleFillPaint = Paint().apply {
+        style = Paint.Style.FILL
+        color = ContextCompat.getColor(context, R.color.md_theme_dark_primary)
+        strokeWidth = 2f
+    }
+    private val circleBorderPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 4f
+        color = ContextCompat.getColor(context, R.color.md_theme_dark_onBackground)
+    }
     private val accuracy = location.accuracy.toDouble() / 16
 
     init {
-        circleFillPaint.style = Paint.Style.FILL
-        circleFillPaint.color = ContextCompat.getColor(context, R.color.md_theme_dark_primary)
-        circleFillPaint.strokeWidth = 2f
-
-        circleBorderPaint.style = Paint.Style.STROKE
-        circleBorderPaint.strokeWidth = 4f
-        circleBorderPaint.color = ContextCompat.getColor(context, R.color.md_theme_dark_onBackground)
+        marker.position = GeoPoint(location.latitude, location.longitude)
     }
 
     override fun draw(canvas: Canvas, mapView: MapView, shadow: Boolean) {
@@ -33,18 +35,11 @@ class CurrentLocationOverlay(val context: Context, val mapView: MapView, val loc
             return
         }
 
-        if (marker == null) {
-            marker = Marker(mapView)
-            // marker?.position = GeoPoint(location.latitude, location.longitude)
-            // marker?.icon = ContextCompat.getDrawable(context, R.drawable.ic_location)
-            //mapView.overlays.add(marker)
-        } else {
-            marker?.position = GeoPoint(location.latitude, location.longitude)
-        }
+        marker.position = GeoPoint(location.latitude, location.longitude)
 
         val projection = mapView.projection
         val accuracyRadius = projection.metersToPixels(accuracy.toFloat()) * (1 / cos(Math.toRadians(location.latitude)))
-        val point = projection.toPixels(marker?.position ?: GeoPoint(0.0, 0.0), null)
+        val point = projection.toPixels(marker.position, null)
 
         canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), accuracyRadius.toFloat(), circleFillPaint)
         canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), accuracyRadius.toFloat(), circleBorderPaint)
