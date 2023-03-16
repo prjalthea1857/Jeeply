@@ -84,9 +84,6 @@ class DashboardFragment : Fragment() {
         // Displays the current weather information.
         displayCurrentWeather()
 
-        // Finds the user current address.
-        findMyLocationAddress()
-
         /**
          * Require Internet Access - END
          */
@@ -325,6 +322,9 @@ class DashboardFragment : Fragment() {
                     updateForecast()
                 else
                     jeeplyDatabaseHelper.getCurrentForecast()?.let { displayForecastData(it) }
+
+                // Finds the user current address.
+                findMyLocationAddress()
 
                 // Get the current time and calculate the delay until the next hour
                 val calendar = Calendar.getInstance()
