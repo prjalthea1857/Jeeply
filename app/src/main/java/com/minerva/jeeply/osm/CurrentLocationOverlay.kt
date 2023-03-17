@@ -4,27 +4,27 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.location.Location
+import android.location.LocationListener
 import androidx.core.content.ContextCompat
 import com.minerva.jeeply.R
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
-import kotlin.math.cos
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
-class CurrentLocationOverlay(private val context: Context, mapView: MapView, private val location: Location) : Overlay() {
+class CurrentLocationOverlay(private val context: Context, mapView: MapView, var location: Location) : Overlay() {
     private val marker = Marker(mapView)
     private val circleFillPaint = Paint().apply {
         style = Paint.Style.FILL
-        color = ContextCompat.getColor(context, R.color.md_theme_dark_primary)
-        strokeWidth = 2f
+        color = ContextCompat.getColor(context, R.color.md_theme_dark_secondary)
     }
     private val circleBorderPaint = Paint().apply {
         style = Paint.Style.STROKE
-        strokeWidth = 4f
-        color = ContextCompat.getColor(context, R.color.md_theme_dark_onBackground)
+        strokeWidth = 8f
+        color = ContextCompat.getColor(context, R.color.md_theme_dark_outline)
     }
-    private val accuracy = location.accuracy.toDouble() / 16
 
     init {
         marker.position = GeoPoint(location.latitude, location.longitude)
@@ -38,7 +38,11 @@ class CurrentLocationOverlay(private val context: Context, mapView: MapView, pri
         marker.position = GeoPoint(location.latitude, location.longitude)
 
         val projection = mapView.projection
-        val accuracyRadius = projection.metersToPixels(accuracy.toFloat()) * (1 / cos(Math.toRadians(location.latitude)))
+
+        // Convert 64dp to pixels based on the device's screen density
+        val sizeInPx = context.resources.getDimensionPixelSize(R.dimen.marker_size)
+        val accuracyRadius = sizeInPx / 2
+
         val point = projection.toPixels(marker.position, null)
 
         canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), accuracyRadius.toFloat(), circleFillPaint)

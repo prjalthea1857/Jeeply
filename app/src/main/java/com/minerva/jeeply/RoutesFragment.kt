@@ -1,5 +1,7 @@
 package com.minerva.jeeply
 
+import android.location.Location
+import android.location.LocationListener
 import android.os.Bundle
 import android.preference.PreferenceManager
 import android.view.LayoutInflater
@@ -7,13 +9,15 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.minerva.jeeply.databinding.FragmentRoutesBinding
-import com.minerva.jeeply.osm.NearbyLocationOverlay
 import com.minerva.jeeply.helper.Utility
 import com.minerva.jeeply.osm.CurrentLocationOverlay
 import org.osmdroid.api.IMapController
 import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 
 /**
@@ -39,14 +43,27 @@ class RoutesFragment : Fragment() {
         _binding = FragmentRoutesBinding.inflate(inflater, container, false)
 
         utility = Utility(requireContext())
+        utility.locationListener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                // Handle location change here
+                utility.getCurrentLocation()
 
-        latitude = utility.location.latitude
-        longitude = utility.location.longitude
+                latitude = utility.location.latitude
+                longitude = utility.location.longitude
+            }
+
+            override fun onProviderEnabled(provider: String) {}
+
+            override fun onProviderDisabled(provider: String) {}
+
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+        }
 
         Configuration.getInstance().load(context, PreferenceManager.getDefaultSharedPreferences(context))
 
         val mapView = binding.mapView // use binding to access views
         // mapView.setTileSource(TileSourceFactory.DEFAULT_TILE_SOURCE)
+        mapView.setTileSource(TileSourceFactory.MAPNIK)
 
         // Add zoom controls
         mapView.isClickable = true // remove "binding" from these lines
@@ -72,8 +89,16 @@ class RoutesFragment : Fragment() {
         mapController.setCenter(startPoint)
         mapController.setZoom(17.5)
 
-        // MapView.overlays.add(NearbyLocationOverlay(requireContext(), mapView, utility.location))
+        // TODO: make your cursor overlay static size,
+        //  it means that the circle should be in fixed size state when zooming in or out.
+        val myLocationNewOverlay = MyLocationNewOverlay(GpsMyLocationProvider(context), mapView)
+
         mapView.overlays.add(CurrentLocationOverlay(requireContext(), mapView, utility.location))
+        mapView.overlays.add(myLocationNewOverlay)
+
+        myLocationNewOverlay.enableMyLocation()
+        myLocationNewOverlay.enableFollowLocation()
+
         mapView.invalidate()
 
         return binding.root

@@ -6,10 +6,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.LocationListener
 import android.location.LocationManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -20,10 +22,24 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 
 class Utility(private val context: Context) {
-    private var locationManager: LocationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    var locationManager: LocationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     private var connectivityManager: ConnectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    var locationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            // update the location and redraw the overlay
+            _location = location
+        }
+
+        override fun onProviderEnabled(provider: String) {}
+
+        override fun onProviderDisabled(provider: String) {}
+
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+    }
 
     private var _location: Location? = null
+
+    private val ACCURACY_THRESHOLD = 10.0 // Or whatever value you want to use
 
     var location: Location
         get() = _location ?: throw IllegalStateException("Location not available")
@@ -69,17 +85,43 @@ class Utility(private val context: Context) {
         )
     }
 
-    private fun getCurrentLocation() {
-        val location = if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+    fun getCurrentLocation() {
+        // Check if the app has location permissions
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
             ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
         ) {
-            null
-        } else {
-            locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            // If not, request for location permissions
+            requestPermissions(context as Activity, arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ), PERMISSIONS_REQUEST)
+            return
         }
 
-        if (location != null) {
-            this.location = location
+        // Get the last known location from the GPS provider
+        val gpsLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+        if (gpsLocation != null) {
+            val gpsAccuracy = gpsLocation.accuracy.toDouble()
+            if (gpsAccuracy < ACCURACY_THRESHOLD) {
+                // If the GPS accuracy is good enough, use this location
+                location = gpsLocation
+                return
+            }
         }
+
+        // Get the last known location from the network provider
+        val networkLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+        if (networkLocation != null) {
+            val networkAccuracy = networkLocation.accuracy.toDouble()
+            if (networkAccuracy < ACCURACY_THRESHOLD) {
+                // If the network accuracy is good enough, use this location
+                location = networkLocation
+                return
+            }
+        }
+
+        // If no good enough location was found, request for location updates
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0L, 0f, locationListener)
+        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0L, 0f, locationListener)
     }
 }
