@@ -67,6 +67,29 @@ class DashboardFragment : Fragment() {
 
         // Initialize global utility
         utility = Utility(requireContext())
+        utility.locationListener = object : android.location.LocationListener {
+            override fun onLocationChanged(location: Location) {
+                /**
+                 * Require Internet Access - START
+                 */
+
+                // Displays the current weather information.
+                displayCurrentWeather()
+
+                // Finds the user current address.
+                findMyLocationAddress()
+
+                /**
+                 * Require Internet Access - END
+                 */
+            }
+
+            override fun onProviderEnabled(provider: String) {}
+
+            override fun onProviderDisabled(provider: String) {}
+
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+        }
 
         // Initialize database
         jeeplyDatabaseHelper = JeeplyDatabaseHelper(requireContext())
@@ -76,20 +99,6 @@ class DashboardFragment : Fragment() {
 
         // Display basic greetings based on time quarter
         startGreetings()
-
-        /**
-         * Require Internet Access - START
-         */
-
-        // Displays the current weather information.
-        displayCurrentWeather()
-
-        // Finds the user current address.
-        findMyLocationAddress()
-
-        /**
-         * Require Internet Access - END
-         */
 
         return binding.root
     }
