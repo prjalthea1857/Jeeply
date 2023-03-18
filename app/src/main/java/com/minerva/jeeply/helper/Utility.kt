@@ -39,7 +39,7 @@ class Utility(private val context: Context) {
 
     private var _location: Location? = null
 
-    private val ACCURACY_THRESHOLD = 10.0 // Or whatever value you want to use
+    private val ACCURACY_THRESHOLD = 100.0 // Or whatever value you want to use
 
     var location: Location
         get() = _location ?: throw IllegalStateException("Location not available")
@@ -85,7 +85,7 @@ class Utility(private val context: Context) {
         )
     }
 
-    fun getCurrentLocation() {
+    private fun getCurrentLocation() {
         // Check if the app has location permissions
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
             ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
@@ -101,23 +101,17 @@ class Utility(private val context: Context) {
         // Get the last known location from the GPS provider
         val gpsLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
         if (gpsLocation != null) {
-            val gpsAccuracy = gpsLocation.accuracy.toDouble()
-            if (gpsAccuracy < ACCURACY_THRESHOLD) {
-                // If the GPS accuracy is good enough, use this location
-                location = gpsLocation
-                return
-            }
+            location = gpsLocation
+
+            return
         }
 
         // Get the last known location from the network provider
         val networkLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
         if (networkLocation != null) {
-            val networkAccuracy = networkLocation.accuracy.toDouble()
-            if (networkAccuracy < ACCURACY_THRESHOLD) {
-                // If the network accuracy is good enough, use this location
-                location = networkLocation
-                return
-            }
+            location = networkLocation
+
+            return
         }
 
         // If no good enough location was found, request for location updates

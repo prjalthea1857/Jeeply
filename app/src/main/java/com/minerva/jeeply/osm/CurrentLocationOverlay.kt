@@ -14,7 +14,7 @@ import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
-class CurrentLocationOverlay(private val context: Context, mapView: MapView, var location: Location) : Overlay() {
+class CurrentLocationOverlay(private val context: Context, var mapView: MapView, var location: Location) : Overlay() {
     private val marker = Marker(mapView)
     private val circleFillPaint = Paint().apply {
         style = Paint.Style.FILL
@@ -25,6 +25,9 @@ class CurrentLocationOverlay(private val context: Context, mapView: MapView, var
         strokeWidth = 8f
         color = ContextCompat.getColor(context, R.color.md_theme_dark_outline)
     }
+
+    // Add a boolean flag to indicate whether to follow the location or not
+    private var followLocation = false
 
     init {
         marker.position = GeoPoint(location.latitude, location.longitude)
@@ -47,5 +50,23 @@ class CurrentLocationOverlay(private val context: Context, mapView: MapView, var
 
         canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), accuracyRadius.toFloat(), circleFillPaint)
         canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), accuracyRadius.toFloat(), circleBorderPaint)
+
+        // If followLocation is enabled, center the map view on the current location
+        if (followLocation) {
+            mapView.controller.setCenter(marker.position)
+        }
+    }
+
+    fun updateLocation(newLocation: Location) {
+        location = newLocation
+        marker.position = GeoPoint(location.latitude, location.longitude)
+
+        // Center the map view on the new location
+        mapView.controller.setCenter(marker.position)
+    }
+
+    // Add a function to enable or disable following the location
+    fun enableFollowLocation(enable: Boolean) {
+        followLocation = enable
     }
 }

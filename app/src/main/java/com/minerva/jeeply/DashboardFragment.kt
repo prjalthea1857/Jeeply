@@ -100,6 +100,20 @@ class DashboardFragment : Fragment() {
         // Display basic greetings based on time quarter
         startGreetings()
 
+        /**
+         * Require Internet Access - START
+         */
+
+        // Displays the current weather information.
+        displayCurrentWeather()
+
+        // Finds the user current address.
+        findMyLocationAddress()
+
+        /**
+         * Require Internet Access - END
+         */
+
         return binding.root
     }
 

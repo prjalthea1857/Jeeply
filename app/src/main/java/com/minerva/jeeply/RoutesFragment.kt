@@ -1,21 +1,25 @@
 package com.minerva.jeeply
 
+import android.content.Context
+import android.graphics.*
+import android.graphics.drawable.Drawable
 import android.location.Location
-import android.location.LocationListener
 import android.os.Bundle
 import android.preference.PreferenceManager
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.minerva.jeeply.databinding.FragmentRoutesBinding
 import com.minerva.jeeply.helper.Utility
-import com.minerva.jeeply.osm.CurrentLocationOverlay
 import org.osmdroid.api.IMapController
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
@@ -33,9 +37,6 @@ class RoutesFragment : Fragment() {
 
     lateinit var utility: Utility
 
-    var latitude: Double = 0.0
-    var longitude: Double = 0.0
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -43,21 +44,6 @@ class RoutesFragment : Fragment() {
         _binding = FragmentRoutesBinding.inflate(inflater, container, false)
 
         utility = Utility(requireContext())
-        utility.locationListener = object : LocationListener {
-            override fun onLocationChanged(location: Location) {
-                // Handle location change here
-                utility.getCurrentLocation()
-
-                latitude = utility.location.latitude
-                longitude = utility.location.longitude
-            }
-
-            override fun onProviderEnabled(provider: String) {}
-
-            override fun onProviderDisabled(provider: String) {}
-
-            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-        }
 
         Configuration.getInstance().load(context, PreferenceManager.getDefaultSharedPreferences(context))
 
@@ -85,20 +71,20 @@ class RoutesFragment : Fragment() {
         mapView.setScrollableAreaLimitDouble(boundingBox)
 
         // Set the initial map center and zoom level
-        val startPoint = GeoPoint(latitude, longitude)
+        val startPoint = GeoPoint(utility.location.latitude, utility.location.longitude)
         mapController.setCenter(startPoint)
         mapController.setZoom(17.5)
 
         // TODO: make your cursor overlay static size,
         //  it means that the circle should be in fixed size state when zooming in or out.
         val myLocationNewOverlay = MyLocationNewOverlay(GpsMyLocationProvider(context), mapView)
-
-        mapView.overlays.add(CurrentLocationOverlay(requireContext(), mapView, utility.location))
-        mapView.overlays.add(myLocationNewOverlay)
+        myLocationNewOverlay.setPersonIcon(drawCircleMarker(utility.location, mapView))
+        myLocationNewOverlay.setPersonHotspot(25.0f, 25.0f)
 
         myLocationNewOverlay.enableMyLocation()
         myLocationNewOverlay.enableFollowLocation()
 
+        mapView.overlays.add(myLocationNewOverlay)
         mapView.invalidate()
 
         return binding.root
@@ -107,5 +93,51 @@ class RoutesFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    fun drawableToBitmap(drawable: Drawable?): Bitmap? {
+        val bitmap = drawable?.let {
+            Bitmap.createBitmap(
+                it.intrinsicWidth,
+                drawable.intrinsicHeight,
+                Bitmap.Config.ARGB_8888
+            )
+        }
+
+        val canvas = bitmap?.let { Canvas(it) }
+        if (canvas != null) {
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+        }
+        canvas?.let { drawable.draw(it) }
+
+        return bitmap
+    }
+
+    fun drawCircleMarker(location: Location, mapView: MapView): Bitmap? {
+        val context: Context = requireContext()
+
+        val marker = Marker(mapView)
+
+        val width = context.resources.getDimensionPixelSize(R.dimen.marker_size) // width of the bitmap
+        val height = context.resources.getDimensionPixelSize(R.dimen.marker_size) // height of the bitmap
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val circleFillPaint = Paint().apply {
+            style = Paint.Style.FILL
+            color = ContextCompat.getColor(context, R.color.md_theme_dark_secondary)
+        }
+
+        val circleBorderPaint = Paint().apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 8f
+            color = ContextCompat.getColor(context, R.color.md_theme_dark_outline)
+        }
+
+        canvas.drawCircle(width / 2f, height / 2f, (width / 2f) - 4f, circleFillPaint)
+        canvas.drawCircle(width / 2f, height / 2f, (width / 2f) - 4f, circleBorderPaint)
+
+        return bitmap
     }
 }
