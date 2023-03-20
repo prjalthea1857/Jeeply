@@ -12,7 +12,7 @@ import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.minerva.jeeply.databinding.FragmentRoutesBinding
-import com.minerva.jeeply.helper.Utility
+import com.minerva.jeeply.helper.PermissionManager
 import org.osmdroid.api.IMapController
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -35,7 +35,7 @@ class RoutesFragment : Fragment() {
     // onDestroyView.
     private val binding get() = _binding!!
 
-    lateinit var utility: Utility
+    lateinit var permissionManager: PermissionManager
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -43,12 +43,13 @@ class RoutesFragment : Fragment() {
     ): View {
         _binding = FragmentRoutesBinding.inflate(inflater, container, false)
 
-        utility = Utility(requireContext())
+        permissionManager = PermissionManager(requireContext())
 
-        Configuration.getInstance().load(context, PreferenceManager.getDefaultSharedPreferences(context))
+        val conf = Configuration.getInstance()
+        conf.load(context, PreferenceManager.getDefaultSharedPreferences(context))
+        conf.cacheMapTileCount = 5
 
         val mapView = binding.mapView // use binding to access views
-        // mapView.setTileSource(TileSourceFactory.DEFAULT_TILE_SOURCE)
         mapView.setTileSource(TileSourceFactory.MAPNIK)
 
         // Add zoom controls
@@ -62,6 +63,11 @@ class RoutesFragment : Fragment() {
         mapView.maxZoomLevel = 20.0
         mapView.minZoomLevel = 5.0
 
+        // Set the initial map center and zoom level
+        val manilaStartPoint = GeoPoint(14.52, 120.43)
+        mapController.setCenter(manilaStartPoint)
+        mapController.setZoom(17.5)
+
         // Set the boundaries of the map to Antarctica
         val south = -85.05
         val west = -180.0
@@ -70,28 +76,87 @@ class RoutesFragment : Fragment() {
         val boundingBox = BoundingBox(north, east, south, west)
         mapView.setScrollableAreaLimitDouble(boundingBox)
 
-        // Set the initial map center and zoom level
-        val startPoint = GeoPoint(utility.location.latitude, utility.location.longitude)
-        mapController.setCenter(startPoint)
-        mapController.setZoom(17.5)
+        /**
+         * Require Location/GPS Access - START
+         */
 
-        // TODO: make your cursor overlay static size,
-        //  it means that the circle should be in fixed size state when zooming in or out.
-        val myLocationNewOverlay = MyLocationNewOverlay(GpsMyLocationProvider(context), mapView)
-        myLocationNewOverlay.setPersonIcon(drawCircleMarker(utility.location, mapView))
-        myLocationNewOverlay.setPersonHotspot(25.0f, 25.0f)
+        GpsMyLocationProvider(context).startLocationProvider { location, source ->
+            if (location != null) {
+                // TODO: make your cursor overlay static size,
+                //  it means that the circle should be in fixed size state when zooming in or out.
+                val myLocationNewOverlay = MyLocationNewOverlay(GpsMyLocationProvider(context), mapView)
+                myLocationNewOverlay.setPersonIcon(drawCircleMarker(location, mapView))
+                myLocationNewOverlay.setPersonHotspot(25.0f, 25.0f)
 
-        myLocationNewOverlay.enableMyLocation()
-        myLocationNewOverlay.enableFollowLocation()
+                myLocationNewOverlay.enableMyLocation()
+                myLocationNewOverlay.enableFollowLocation()
 
-        mapView.overlays.add(myLocationNewOverlay)
-        mapView.invalidate()
+                mapView.overlays.add(myLocationNewOverlay)
+                mapView.invalidate()
+            }
+        }
+
+        /**
+         * Require Location/GPS Access - END
+         */
+//        object : android.location.LocationListener {
+//            override fun onLocationChanged(location: Location) {
+//                Configuration.getInstance().load(context, PreferenceManager.getDefaultSharedPreferences(context))
+//
+//                val mapView = binding.mapView // use binding to access views
+//                // mapView.setTileSource(TileSourceFactory.DEFAULT_TILE_SOURCE)
+//                mapView.setTileSource(TileSourceFactory.MAPNIK)
+//
+//                // Add zoom controls
+//                mapView.isClickable = true // remove "binding" from these lines
+//                mapView.setBuiltInZoomControls(false)
+//                mapView.setMultiTouchControls(true)
+//
+//                val mapController: IMapController = mapView.controller
+//
+//                // Set the maximum zoom level to prevent the user from seeing the tiled maps when zoomed out
+//                mapView.maxZoomLevel = 20.0
+//                mapView.minZoomLevel = 5.0
+//
+//                // Set the boundaries of the map to Antarctica
+//                val south = -85.05
+//                val west = -180.0
+//                val north = 85.05
+//                val east = 180.0
+//                val boundingBox = BoundingBox(north, east, south, west)
+//                mapView.setScrollableAreaLimitDouble(boundingBox)
+//
+//                // Set the initial map center and zoom level
+//                val startPoint = GeoPoint(location.latitude, location.longitude)
+//                mapController.setCenter(startPoint)
+//                mapController.setZoom(17.5)
+//
+//                // TODO: make your cursor overlay static size,
+//                //  it means that the circle should be in fixed size state when zooming in or out.
+//                val myLocationNewOverlay = MyLocationNewOverlay(GpsMyLocationProvider(context), mapView)
+//                myLocationNewOverlay.setPersonIcon(drawCircleMarker(location, mapView))
+//                myLocationNewOverlay.setPersonHotspot(25.0f, 25.0f)
+//
+//                myLocationNewOverlay.enableMyLocation()
+//                myLocationNewOverlay.enableFollowLocation()
+//
+//                mapView.overlays.add(myLocationNewOverlay)
+//                mapView.invalidate()
+//            }
+//
+//            override fun onProviderEnabled(provider: String) {}
+//
+//            override fun onProviderDisabled(provider: String) {}
+//
+//            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+//        }
 
         return binding.root
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        GpsMyLocationProvider(requireContext()).stopLocationProvider()
         _binding = null
     }
 

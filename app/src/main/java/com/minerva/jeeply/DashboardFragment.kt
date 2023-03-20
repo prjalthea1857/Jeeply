@@ -1,9 +1,7 @@
 package com.minerva.jeeply
 
-import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.drawable.Drawable
 import android.location.Address
@@ -13,23 +11,19 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.google.android.gms.location.LocationListener
 import com.minerva.jeeply.databinding.FragmentDashboardBinding
 import com.minerva.jeeply.helper.JeeplyDatabaseHelper
-import com.minerva.jeeply.helper.Utility
+import com.minerva.jeeply.helper.PermissionManager
 import com.minerva.jeeply.openAPIs.Forecast
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
@@ -37,10 +31,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
-import kotlin.math.roundToLong
 
 /**
  * A simple [Fragment] subclass as the default destination in the navigation.
@@ -56,43 +50,25 @@ class DashboardFragment : Fragment() {
     private var keepRunning = true
     var lastNightMode: Int? = null
 
-    lateinit var utility: Utility
+    lateinit var permissionManager: PermissionManager
     lateinit var jeeplyDatabaseHelper: JeeplyDatabaseHelper
 
+    lateinit var gpsMyLocationProvider: GpsMyLocationProvider
+
+    @SuppressLint("MissingPermission")
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentDashboardBinding.inflate(inflater, container, false)
 
-        // Initialize global utility
-        utility = Utility(requireContext())
-        utility.locationListener = object : android.location.LocationListener {
-            override fun onLocationChanged(location: Location) {
-                /**
-                 * Require Internet Access - START
-                 */
-
-                // Displays the current weather information.
-                displayCurrentWeather()
-
-                // Finds the user current address.
-                findMyLocationAddress()
-
-                /**
-                 * Require Internet Access - END
-                 */
-            }
-
-            override fun onProviderEnabled(provider: String) {}
-
-            override fun onProviderDisabled(provider: String) {}
-
-            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-        }
+        // Initialize device permissions
+        permissionManager = PermissionManager(requireContext())
 
         // Initialize database
         jeeplyDatabaseHelper = JeeplyDatabaseHelper(requireContext())
+
+        gpsMyLocationProvider = GpsMyLocationProvider(context)
 
         // Toggles day/night mode icons and updates the UI.
         toggleDayNightIcons()
@@ -101,17 +77,21 @@ class DashboardFragment : Fragment() {
         startGreetings()
 
         /**
-         * Require Internet Access - START
+         * Require Location/GPS Access - START
          */
 
-        // Displays the current weather information.
-        displayCurrentWeather()
+        gpsMyLocationProvider.startLocationProvider { location, source ->
+            if (location != null) {
+                // Displays the current weather information.
+                displayCurrentWeather(location)
 
-        // Finds the user current address.
-        findMyLocationAddress()
+                // Finds the user current address.
+                findMyLocationAddress(location)
+            }
+        }
 
         /**
-         * Require Internet Access - END
+         * Require Location/GPS Access - END
          */
 
         return binding.root
@@ -119,6 +99,8 @@ class DashboardFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        gpsMyLocationProvider.stopLocationProvider()
+
         keepRunning = false
         _binding = null
     }
@@ -218,7 +200,7 @@ class DashboardFragment : Fragment() {
     /**
      * Schedules periodic updates using a Handler and an updateRunnable object that calls fetchForecast() and displayForecastData()
      */
-    private fun displayCurrentWeather() {
+    private fun displayCurrentWeather(location: Location) {
         /**
          * takes a date-time string and a Forecast object, and returns a weather condition and a drawable
          * image based on the matching hour's weather code in the Forecast object.
@@ -334,7 +316,7 @@ class DashboardFragment : Fragment() {
 
         fun updateForecast() {
             lifecycleScope.launch {
-                val forecast = fetchForecast(utility.location.latitude, utility.location.longitude)
+                val forecast = fetchForecast(location.latitude, location.longitude)
                 jeeplyDatabaseHelper.saveCurrentForecast(forecast)
                 displayForecastData(forecast)
             }
@@ -344,7 +326,7 @@ class DashboardFragment : Fragment() {
 
         val updateRunnable = object : Runnable {
             override fun run() {
-                if (utility.hasWifi())
+                if (permissionManager.hasWifi())
                     updateForecast()
                 else
                     jeeplyDatabaseHelper.getCurrentForecast()?.let { displayForecastData(it) }
@@ -365,7 +347,7 @@ class DashboardFragment : Fragment() {
     /**
      * Uses reverse geocoding to find the most common location address based on the device's current location.
      */
-    private fun findMyLocationAddress() {
+    private fun findMyLocationAddress(location: Location) {
         fun getMostCommonLocation(addresses: List<Address>): String {
             val localities = mutableMapOf<String, Int>()
             val subAdminAreas = mutableMapOf<String, Int>()
@@ -414,7 +396,7 @@ class DashboardFragment : Fragment() {
 
         // Use reverse geocoding to get the address
         val geocoder = Geocoder(requireContext(), Locale.getDefault())
-        val addresses = geocoder.getFromLocation(utility.location.latitude, utility.location.longitude, 10)
+        val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 10)
 
         if (addresses!!.isNotEmpty()) {
             val address = getMostCommonLocation(addresses)
