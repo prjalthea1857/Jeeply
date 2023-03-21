@@ -1,13 +1,11 @@
 package com.minerva.jeeply
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.res.Configuration
 import android.graphics.drawable.Drawable
 import android.location.Address
 import android.location.Geocoder
 import android.location.Location
-import android.location.LocationManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -16,16 +14,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
-import android.widget.Toast
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.minerva.jeeply.databinding.FragmentDashboardBinding
 import com.minerva.jeeply.helper.JeeplyDatabaseHelper
-import com.minerva.jeeply.helper.PermissionManager
+import com.minerva.jeeply.helper.UtilityManager
 import com.minerva.jeeply.openAPIs.Forecast
 import com.google.gson.Gson
+import com.minerva.jeeply.helper.DashboardCache
+import com.minerva.jeeply.helper.Temporal
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,10 +48,12 @@ class DashboardFragment : Fragment() {
     private var keepRunning = true
     var lastNightMode: Int? = null
 
-    lateinit var permissionManager: PermissionManager
+    lateinit var utilityManager: UtilityManager
     lateinit var jeeplyDatabaseHelper: JeeplyDatabaseHelper
 
     lateinit var gpsMyLocationProvider: GpsMyLocationProvider
+
+    var dashboardCache: DashboardCache? = null
 
     @SuppressLint("MissingPermission")
     override fun onCreateView(
@@ -63,7 +63,7 @@ class DashboardFragment : Fragment() {
         _binding = FragmentDashboardBinding.inflate(inflater, container, false)
 
         // Initialize device permissions
-        permissionManager = PermissionManager(requireContext())
+        utilityManager = UtilityManager(requireContext())
 
         // Initialize database
         jeeplyDatabaseHelper = JeeplyDatabaseHelper(requireContext())
@@ -75,6 +75,10 @@ class DashboardFragment : Fragment() {
 
         // Display basic greetings based on time quarter
         startGreetings()
+
+        if (UtilityManager.temporal?.dashboardCache != null) {
+            displayCache()
+        }
 
         /**
          * Require Location/GPS Access - START
@@ -95,6 +99,20 @@ class DashboardFragment : Fragment() {
          */
 
         return binding.root
+    }
+
+    private fun saveToCache(dashboardCache: DashboardCache) {
+        UtilityManager.temporal = Temporal(dashboardCache)
+    }
+
+    private fun displayCache() {
+        UtilityManager.temporal?.dashboardCache?.apply {
+            binding.weatherIconImageView.setImageDrawable(weather)
+            binding.weatherIconImageView.alpha = if (degree == "--°" || degree == "") 0.5f else 1.0f
+            binding.tempDegreeTextView.text = degree
+            binding.weatherStatusTextView.text = condition
+            binding.locationTextView.text = shortAddress
+        }
     }
 
     override fun onDestroyView() {
@@ -310,6 +328,13 @@ class DashboardFragment : Fragment() {
                     _binding?.weatherIconImageView?.setImageDrawable(weatherCondition.second)
                     _binding?.weatherIconImageView?.alpha = 1.0F
                     _binding?.weatherStatusTextView?.text = weatherCondition.first
+
+                    if (dashboardCache != null) {
+                        dashboardCache?.weather = weatherCondition.second
+                        dashboardCache?.condition = weatherCondition.first
+                        dashboardCache?.degree = degree
+                        saveToCache(dashboardCache!!)
+                    }
                 }
             }
         }
@@ -326,7 +351,7 @@ class DashboardFragment : Fragment() {
 
         val updateRunnable = object : Runnable {
             override fun run() {
-                if (permissionManager.hasWifi())
+                if (utilityManager.hasWifi())
                     updateForecast()
                 else
                     jeeplyDatabaseHelper.getCurrentForecast()?.let { displayForecastData(it) }
@@ -401,6 +426,9 @@ class DashboardFragment : Fragment() {
         if (addresses!!.isNotEmpty()) {
             val address = getMostCommonLocation(addresses)
             binding.locationTextView.text = address
+
+            dashboardCache = DashboardCache(ContextCompat.getDrawable(requireContext(), R.drawable.ic_day_and_night), "--°", "Looking up to the sky...", address)
+            saveToCache(dashboardCache!!)
         }
     }
 }
