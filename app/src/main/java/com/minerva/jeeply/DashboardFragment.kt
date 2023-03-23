@@ -1,6 +1,7 @@
 package com.minerva.jeeply
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.res.Configuration
 import android.graphics.drawable.Drawable
 import android.location.Address
@@ -45,8 +46,10 @@ class DashboardFragment : Fragment() {
     // onDestroyView.
     private val binding get() = _binding!!
 
+    private lateinit var context: Context
+
     private var keepRunning = true
-    var lastNightMode: Int? = null
+    private var lastNightMode: Int? = null
 
     lateinit var utilityManager: UtilityManager
     lateinit var jeeplyDatabaseHelper: JeeplyDatabaseHelper
@@ -62,41 +65,45 @@ class DashboardFragment : Fragment() {
     ): View {
         _binding = FragmentDashboardBinding.inflate(inflater, container, false)
 
-        // Initialize device permissions
-        utilityManager = UtilityManager(requireContext())
+        if (isAdded) {
+            context = requireContext()
 
-        // Initialize database
-        jeeplyDatabaseHelper = JeeplyDatabaseHelper(requireContext())
+            // Initialize device permissions
+            utilityManager = UtilityManager(context)
 
-        gpsMyLocationProvider = GpsMyLocationProvider(context)
+            // Initialize database
+            jeeplyDatabaseHelper = JeeplyDatabaseHelper(context)
 
-        // Toggles day/night mode icons and updates the UI.
-        toggleDayNightIcons()
+            gpsMyLocationProvider = GpsMyLocationProvider(context)
 
-        // Display basic greetings based on time quarter
-        startGreetings()
+            // Toggles day/night mode icons and updates the UI.
+            toggleDayNightIcons()
 
-        if (UtilityManager.temporal?.dashboardCache != null) {
-            displayCache()
-        }
+            // Display basic greetings based on time quarter
+            startGreetings()
 
-        /**
-         * Require Location/GPS Access - START
-         */
-
-        gpsMyLocationProvider.startLocationProvider { location, source ->
-            if (location != null) {
-                // Displays the current weather information.
-                displayCurrentWeather(location)
-
-                // Finds the user current address.
-                findMyLocationAddress(location)
+            if (UtilityManager.temporal?.dashboardCache != null) {
+                displayCache()
             }
-        }
 
-        /**
-         * Require Location/GPS Access - END
-         */
+            /**
+             * Require Location/GPS Access - START
+             */
+
+            gpsMyLocationProvider.startLocationProvider { location, source ->
+                if (location != null) {
+                    // Displays the current weather information.
+                    displayCurrentWeather(location)
+
+                    // Finds the user current address.
+                    findMyLocationAddress(location)
+                }
+            }
+
+            /**
+             * Require Location/GPS Access - END
+             */
+        }
 
         return binding.root
     }
@@ -129,32 +136,32 @@ class DashboardFragment : Fragment() {
      */
     private fun toggleDayNightIcons() {
         fun setDrawableColor(color: Int, drawableResId: Int, imageView: ImageView?) {
-            val drawable: Drawable? = ContextCompat.getDrawable(requireContext(), drawableResId)
+            val drawable: Drawable? = ContextCompat.getDrawable(context, drawableResId)
             drawable?.setTint(color)
             imageView?.setImageDrawable(drawable)
         }
 
         fun setDrawableColor(color: Int, drawableResId: Int, frameLayout: FrameLayout?) {
-            val drawable: Drawable? = ContextCompat.getDrawable(requireContext(), drawableResId)
+            val drawable: Drawable? = ContextCompat.getDrawable(context, drawableResId)
             drawable?.setTint(color)
             frameLayout?.foreground = drawable
         }
 
         fun nightMode() {
-            val color = ContextCompat.getColor(requireContext(), R.color.md_theme_light_onPrimary)
+            val color = ContextCompat.getColor(context, R.color.md_theme_light_onPrimary)
 
-            setDrawableColor(ContextCompat.getColor(requireContext(), R.color.md_theme_light_onPrimary), R.drawable.ic_360_view, _binding?.rotationFrameLayout)
+            setDrawableColor(ContextCompat.getColor(context, R.color.md_theme_light_onPrimary), R.drawable.ic_360_view, _binding?.rotationFrameLayout)
             setDrawableColor(color, R.drawable.ic_day_and_night, _binding?.weatherIconImageView)
         }
 
         fun dayMode() {
-            val color = ContextCompat.getColor(requireContext(), R.color.md_theme_dark_onPrimary)
+            val color = ContextCompat.getColor(context, R.color.md_theme_dark_onPrimary)
 
-            setDrawableColor(ContextCompat.getColor(requireContext(), R.color.md_theme_light_onPrimary), R.drawable.ic_360_view, _binding?.rotationFrameLayout)
+            setDrawableColor(ContextCompat.getColor(context, R.color.md_theme_light_onPrimary), R.drawable.ic_360_view, _binding?.rotationFrameLayout)
             setDrawableColor(color, R.drawable.ic_day_and_night, _binding?.weatherIconImageView)
         }
 
-        val currentNightMode = context?.resources?.configuration?.uiMode?.and(
+        val currentNightMode = context.resources?.configuration?.uiMode?.and(
             Configuration.UI_MODE_NIGHT_MASK)
 
         // Update UI on the main thread only when night mode changes
@@ -233,59 +240,59 @@ class DashboardFragment : Fragment() {
 
                     return when (weatherCode) {
                         0 -> Pair("Clear sky",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_sunny)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_nightly)
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sunny)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_nightly)
                         )
                         1 -> Pair("Mainly clear",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_sun_small_cloud)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_moon_small_cloud)
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_small_cloud)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_moon_small_cloud)
                         )
                         2 -> Pair("Partly cloudy",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_sun_big_cloud)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_moon_big_cloud)
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_big_cloud)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_moon_big_cloud)
                         )
                         3 -> Pair("Mostly cloudy",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_cloudy_sun)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_cloudy_moon)
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_cloudy_sun)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_cloudy_moon)
                         )
                         51 -> Pair("Drizzling lightly",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_sun_drizzle_low)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_moon_drizzle_low)
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_drizzle_low)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_moon_drizzle_low)
                         )
                         53 -> Pair("Drizzling moderately",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_sun_drizzle_mid)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_moon_drizzle_mid)
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_drizzle_mid)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_moon_drizzle_mid)
                         )
                         55 -> Pair("Drizzling heavily",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_sun_drizzle_max)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_moon_drizzle_max)
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_drizzle_max)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_moon_drizzle_max)
                         )
                         61 -> Pair("Raining slightly",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_rainy_low)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_rainy_low)
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_rainy_low)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_rainy_low)
                         )
                         63 -> Pair("Raining moderately",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_rainy_mid)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_rainy_mid)
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_rainy_mid)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_rainy_mid)
                         )
                         65 -> Pair("Raining heavily",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_rainy_max)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_rainy_max)
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_rainy_max)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_rainy_max)
                         )
                         80 -> Pair("Showers",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_sun_drizzle_max)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_moon_drizzle_max)
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_drizzle_max)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_moon_drizzle_max)
                         )
                         95, 96 -> Pair("Thunderstorms (lightly)",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_sunny_rainy_thunder_mid)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_nightly_rainy_thunder_mid)
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sunny_rainy_thunder_mid)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_nightly_rainy_thunder_mid)
                         )
                         97 -> Pair("Thunderstorms (heavy)",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_sunny_rainy_thunder_max)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_nightly_rainy_thunder_max))
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sunny_rainy_thunder_max)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_nightly_rainy_thunder_max))
                         else -> Pair("",
-                            if (isDaytime) ContextCompat.getDrawable(requireContext(), R.drawable.ic_sunny)
-                            else ContextCompat.getDrawable(requireContext(), R.drawable.ic_nightly))
+                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sunny)
+                            else ContextCompat.getDrawable(context, R.drawable.ic_nightly))
                     }
                 }
             }
@@ -420,14 +427,14 @@ class DashboardFragment : Fragment() {
         }
 
         // Use reverse geocoding to get the address
-        val geocoder = Geocoder(requireContext(), Locale.getDefault())
+        val geocoder = Geocoder(context, Locale.getDefault())
         val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 10)
 
         if (addresses!!.isNotEmpty()) {
             val address = getMostCommonLocation(addresses)
             binding.locationTextView.text = address
 
-            dashboardCache = DashboardCache(ContextCompat.getDrawable(requireContext(), R.drawable.ic_day_and_night), "--°", "Looking up to the sky...", address)
+            dashboardCache = DashboardCache(ContextCompat.getDrawable(context, R.drawable.ic_day_and_night), "--°", "Looking up to the sky...", address)
             saveToCache(dashboardCache!!)
         }
     }
