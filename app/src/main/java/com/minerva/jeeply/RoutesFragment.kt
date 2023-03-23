@@ -3,10 +3,7 @@ package com.minerva.jeeply
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.*
-import android.graphics.drawable.Drawable
 import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
 import android.os.Bundle
 import android.preference.PreferenceManager
 import android.view.LayoutInflater
@@ -18,6 +15,7 @@ import androidx.fragment.app.Fragment
 import com.google.android.gms.location.LocationServices
 import com.minerva.jeeply.databinding.FragmentRoutesBinding
 import com.minerva.jeeply.helper.UtilityManager
+import com.minerva.jeeply.osm.OSMController
 import org.osmdroid.api.IMapController
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -41,6 +39,8 @@ class RoutesFragment : Fragment() {
 
     private lateinit var utilityManager: UtilityManager
 
+    private lateinit var mapView: MapView
+    private lateinit var myLocationNewOverlay: MyLocationNewOverlay
     lateinit var gpsMyLocationProvider: GpsMyLocationProvider
     private var initZoomMarker = false
 
@@ -57,7 +57,7 @@ class RoutesFragment : Fragment() {
         conf.load(context, PreferenceManager.getDefaultSharedPreferences(context))
         conf.cacheMapTileCount = 5
 
-        val mapView = binding.mapView // use binding to access views
+        mapView = binding.mapView  // use binding to access views
         mapView.setTileSource(TileSourceFactory.MAPNIK)
 
         // Add zoom controls
@@ -72,8 +72,8 @@ class RoutesFragment : Fragment() {
         mapView.minZoomLevel = 5.0
 
         // Set the initial map center and zoom level
-        val manilaStartPoint = GeoPoint(12.879721, 121.77401699999996)
-        mapController.setCenter(manilaStartPoint)
+        val startPoint = GeoPoint(12.879721, 121.77401699999996)
+        mapController.setCenter(startPoint)
         mapController.setZoom(7.0)
 
         // Set the boundaries of the map to Antarctica
@@ -84,10 +84,8 @@ class RoutesFragment : Fragment() {
         val boundingBox = BoundingBox(north, east, south, west)
         mapView.setScrollableAreaLimitDouble(boundingBox)
 
-        val myLocationNewOverlay = MyLocationNewOverlay(GpsMyLocationProvider(context), mapView)
-        mapView.overlays.add(myLocationNewOverlay)
-
-        myLocationNewOverlay.setPersonIcon(drawCircleMarker(mapView))
+        myLocationNewOverlay = MyLocationNewOverlay(GpsMyLocationProvider(context), mapView)
+        myLocationNewOverlay.setPersonIcon(drawCircleMarker())
         myLocationNewOverlay.setPersonHotspot(25.0f, 25.0f)
 
         myLocationNewOverlay.enableMyLocation()
@@ -98,25 +96,18 @@ class RoutesFragment : Fragment() {
             if (location != null) {
                 if (!initZoomMarker) {
                     mapController.animateTo(GeoPoint(location),17.5, 1550)
+                    OSMController.location = location
                     initZoomMarker = true
                 }
             }
         }
 
+        if (OSMController.location != null) {
+            mapController.setCenter(GeoPoint(OSMController.location))
+            mapController.setZoom(17.5)
+        }
 
-        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
-        fusedLocationClient.lastLocation
-            .addOnSuccessListener { location: Location? ->
-                // Got last known location. In some rare situations this can be null.
-                if (location != null) {
-                    // Do something with the location
-                    Toast.makeText(requireContext(), location.toString(), Toast.LENGTH_LONG).show()
-                }
-            }
-            .addOnFailureListener { e ->
-                // Handle failure
-            }
-
+        mapView.overlays.add(myLocationNewOverlay)
         mapView.invalidate()
 
         return binding.root
@@ -128,7 +119,7 @@ class RoutesFragment : Fragment() {
         _binding = null
     }
 
-    private fun drawCircleMarker(mapView: MapView): Bitmap? {
+    private fun drawCircleMarker(): Bitmap? {
         val context: Context = requireContext()
 
         val width = context.resources.getDimensionPixelSize(R.dimen.marker_size) // width of the bitmap
