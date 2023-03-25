@@ -84,12 +84,12 @@ class DashboardFragment : Fragment() {
             // Display basic greetings based on time quarter.
             startGreetings()
 
-            // Checks the database if it has existing forecast data to display into the UI.
-            findPresetData()
-
             /**
              * Require Location/GPS Access - START
              */
+
+            // Checks the database if it has existing forecast data to display into the UI.
+            findPresetData()
 
             gpsMyLocationProvider.startLocationProvider { location, source ->
                 if (location != null) {
