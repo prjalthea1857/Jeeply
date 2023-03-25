@@ -55,75 +55,77 @@ class RoutesFragment : Fragment() {
     ): View {
         _binding = FragmentRoutesBinding.inflate(inflater, container, false)
 
-        context = requireContext()
+        if (isAdded) {
+            context = requireContext()
 
-        utilityManager = UtilityManager(requireContext())
+            utilityManager = UtilityManager(requireContext())
 
-        val conf = Configuration.getInstance()
-        conf.load(context, PreferenceManager.getDefaultSharedPreferences(context))
-        conf.cacheMapTileCount = 5
+            val conf = Configuration.getInstance()
+            conf.load(context, PreferenceManager.getDefaultSharedPreferences(context))
+            conf.cacheMapTileCount = 5
 
-        mapView = binding.mapView  // use binding to access views
-        mapView.setTileSource(TileSourceFactory.MAPNIK)
+            mapView = binding.mapView  // use binding to access views
+            mapView.setTileSource(TileSourceFactory.MAPNIK)
 
-        // Add zoom controls
-        mapView.isClickable = true // remove "binding" from these lines
-        mapView.setBuiltInZoomControls(false)
-        mapView.setMultiTouchControls(true)
+            // Add zoom controls
+            mapView.isClickable = true // remove "binding" from these lines
+            mapView.setBuiltInZoomControls(false)
+            mapView.setMultiTouchControls(true)
 
-        val mapController: IMapController = mapView.controller
+            val mapController: IMapController = mapView.controller
 
-        // Set the maximum zoom level to prevent the user from seeing the tiled maps when zoomed out
-        mapView.maxZoomLevel = 20.0
-        mapView.minZoomLevel = 5.0
+            // Set the maximum zoom level to prevent the user from seeing the tiled maps when zoomed out
+            mapView.maxZoomLevel = 20.0
+            mapView.minZoomLevel = 5.0
 
-        // Set the initial map center and zoom level
-        val startPoint = GeoPoint(12.879721, 121.77401699999996)
-        mapController.setCenter(startPoint)
-        mapController.setZoom(7.0)
+            // Set the initial map center and zoom level
+            val startPoint = GeoPoint(12.879721, 121.77401699999996)
+            mapController.setCenter(startPoint)
+            mapController.setZoom(7.0)
 
-        // Set the boundaries of the map to Antarctica
-        val south = -85.05
-        val west = -180.0
-        val north = 85.05
-        val east = 180.0
-        val boundingBox = BoundingBox(north, east, south, west)
-        mapView.setScrollableAreaLimitDouble(boundingBox)
+            // Set the boundaries of the map to Antarctica
+            val south = -85.05
+            val west = -180.0
+            val north = 85.05
+            val east = 180.0
+            val boundingBox = BoundingBox(north, east, south, west)
+            mapView.setScrollableAreaLimitDouble(boundingBox)
 
-        val circleCurrentMarker = OSMController.drawCircleMarker(requireContext())
+            val circleCurrentMarker = OSMController.drawCircleMarker(requireContext())
 
-        myCustomLocationNewOverlay = MyCustomLocationNewOverlay(GpsMyLocationProvider(context), mapView)
-        myCustomLocationNewOverlay.overlayName = "mylocation"
-        myCustomLocationNewOverlay.setPersonIcon(circleCurrentMarker)
-        myCustomLocationNewOverlay.setPersonHotspot(22.25f, 22.25f)
+            myCustomLocationNewOverlay = MyCustomLocationNewOverlay(GpsMyLocationProvider(context), mapView)
+            myCustomLocationNewOverlay.overlayName = "mylocation"
+            myCustomLocationNewOverlay.setPersonIcon(circleCurrentMarker)
+            myCustomLocationNewOverlay.setPersonHotspot(22.25f, 22.25f)
 
-        myCustomLocationNewOverlay.enableMyLocation()
-        myCustomLocationNewOverlay.enableFollowLocation()
+            myCustomLocationNewOverlay.enableMyLocation()
+            myCustomLocationNewOverlay.enableFollowLocation()
 
-        currentLocationProvider = GpsMyLocationProvider(context)
-        currentLocationProvider.startLocationProvider { location, source ->
-            if (location != null) {
-                OSMController.location = location
-                if (!initZoomMarker) {
-                    mapController.animateTo(GeoPoint(location),17.5, 1550)
-                    removeTemporaryOverlay()
-                    initZoomMarker = true
+            currentLocationProvider = GpsMyLocationProvider(context)
+            currentLocationProvider.startLocationProvider { location, source ->
+                if (location != null) {
+                    OSMController.location = location
+                    if (!initZoomMarker) {
+                        mapController.animateTo(GeoPoint(location),17.5, 1550)
+                        removeTemporaryOverlay()
+                        initZoomMarker = true
+                    }
                 }
             }
+
+            if (OSMController.location != null) {
+                mapController.setCenter(GeoPoint(OSMController.location))
+                mapController.setZoom(17.5)
+
+                // TODO: After the app successfully retrieves the saved location,
+                //  implemented a function to create a temporary marker similar to the previous one used,
+                //  and dynamically placed it at the center of the map to optimize the user's map viewing experience.
+                addTemporaryMarker(OSMController.location!!)
+            }
+
+            mapView.overlays.add(myCustomLocationNewOverlay)
+            mapView.invalidate()
         }
-
-        if (OSMController.location != null) {
-            mapController.setCenter(GeoPoint(OSMController.location))
-            mapController.setZoom(17.5)
-
-            // TODO: After the app successfully retrieves the saved location,
-            //  implemented a function to create a temporary marker similar to the previous one used,
-            //  and dynamically placed it at the center of the map to optimize the user's map viewing experience.
-            addTemporaryMarker(OSMController.location!!)
-        }
-
-        mapView.overlays.add(myCustomLocationNewOverlay)
-        mapView.invalidate()
 
         return binding.root
     }
