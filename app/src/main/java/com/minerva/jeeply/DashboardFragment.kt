@@ -115,7 +115,7 @@ class DashboardFragment : Fragment() {
     private fun displayCache() {
         UtilityManager.temporal?.dashboardCache?.apply {
             binding.weatherIconImageView.setImageDrawable(weather)
-            binding.weatherIconImageView.alpha = if (degree == "--°" || degree == "") 0.5f else 1.0f
+            binding.weatherIconImageView.alpha = if (degree == "--°") 0.5f else 1.0f
             binding.tempDegreeTextView.text = degree
             binding.weatherStatusTextView.text = condition
             binding.locationTextView.text = shortAddress
@@ -227,80 +227,6 @@ class DashboardFragment : Fragment() {
      */
     private fun displayCurrentWeather(location: Location) {
         /**
-         * takes a date-time string and a Forecast object, and returns a weather condition and a drawable
-         * image based on the matching hour's weather code in the Forecast object.
-         */
-        fun getWeatherCondition(dateTimeLocale: String, forecast: Forecast): Pair<String, Drawable?> {
-            val h = forecast.hourly
-
-            for (i in 0 until h.time.size) {
-                if (h.time[i] == dateTimeLocale) {
-                    val weatherCode = h.weathercode[i]
-                    val isDaytime = dateTimeLocale.substringAfter('T').substring(0, 2).toInt() in 6..17
-
-                    return when (weatherCode) {
-                        0 -> Pair("Clear sky",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sunny)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_nightly)
-                        )
-                        1 -> Pair("Mainly clear",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_small_cloud)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_moon_small_cloud)
-                        )
-                        2 -> Pair("Partly cloudy",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_big_cloud)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_moon_big_cloud)
-                        )
-                        3 -> Pair("Mostly cloudy",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_cloudy_sun)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_cloudy_moon)
-                        )
-                        51 -> Pair("Drizzling lightly",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_drizzle_low)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_moon_drizzle_low)
-                        )
-                        53 -> Pair("Drizzling moderately",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_drizzle_mid)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_moon_drizzle_mid)
-                        )
-                        55 -> Pair("Drizzling heavily",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_drizzle_max)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_moon_drizzle_max)
-                        )
-                        61 -> Pair("Raining slightly",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_rainy_low)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_rainy_low)
-                        )
-                        63 -> Pair("Raining moderately",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_rainy_mid)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_rainy_mid)
-                        )
-                        65 -> Pair("Raining heavily",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_rainy_max)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_rainy_max)
-                        )
-                        80 -> Pair("Showers",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_drizzle_max)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_moon_drizzle_max)
-                        )
-                        95, 96 -> Pair("Thunderstorms (lightly)",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sunny_rainy_thunder_mid)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_nightly_rainy_thunder_mid)
-                        )
-                        97 -> Pair("Thunderstorms (heavy)",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sunny_rainy_thunder_max)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_nightly_rainy_thunder_max))
-                        else -> Pair("",
-                            if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sunny)
-                            else ContextCompat.getDrawable(context, R.drawable.ic_nightly))
-                    }
-                }
-            }
-
-            return Pair("Unknown weather", null)
-        }
-
-        /**
          * takes a date-time string and a Forecast object, and returns a weather condition and a drawable image
          * based on the matching hour's weather code in the Forecast object.
          */
@@ -335,13 +261,6 @@ class DashboardFragment : Fragment() {
                     _binding?.weatherIconImageView?.setImageDrawable(weatherCondition.second)
                     _binding?.weatherIconImageView?.alpha = 1.0F
                     _binding?.weatherStatusTextView?.text = weatherCondition.first
-
-                    if (dashboardCache != null) {
-                        dashboardCache?.weather = weatherCondition.second
-                        dashboardCache?.condition = weatherCondition.first
-                        dashboardCache?.degree = degree
-                        saveToCache(dashboardCache!!)
-                    }
                 }
             }
         }
@@ -358,10 +277,10 @@ class DashboardFragment : Fragment() {
 
         val updateRunnable = object : Runnable {
             override fun run() {
+                jeeplyDatabaseHelper.getCurrentForecast()?.let { displayForecastData(it) }
+
                 if (utilityManager.hasWifi())
                     updateForecast()
-                else
-                    jeeplyDatabaseHelper.getCurrentForecast()?.let { displayForecastData(it) }
 
                 // Get the current time and calculate the delay until the next hour
                 val calendar = Calendar.getInstance()
@@ -434,8 +353,96 @@ class DashboardFragment : Fragment() {
             val address = getMostCommonLocation(addresses)
             binding.locationTextView.text = address
 
-            dashboardCache = DashboardCache(ContextCompat.getDrawable(context, R.drawable.ic_day_and_night), "--°", "Looking up to the sky...", address)
-            saveToCache(dashboardCache!!)
+            jeeplyDatabaseHelper.getCurrentForecast()?.let { forecast ->
+                val h = forecast.hourly
+
+                val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:00", Locale.getDefault())
+                val currentDate = sdf.format(Date())
+
+                for (i in 0 until h.time.size) {
+                    if (h.time[i] == currentDate) {
+                        val degree = h.temperature_2m[i].roundToInt().toString() + "°"
+                        val weatherCondition = getWeatherCondition(h.time[i], forecast)
+
+                        dashboardCache = DashboardCache(weatherCondition.second, degree, weatherCondition.first, address)
+                        saveToCache(dashboardCache!!)
+                    }
+                }
+            }
         }
+    }
+
+    /**
+     * takes a date-time string and a Forecast object, and returns a weather condition and a drawable
+     * image based on the matching hour's weather code in the Forecast object.
+     */
+    private fun getWeatherCondition(dateTimeLocale: String, forecast: Forecast): Pair<String, Drawable?> {
+        val h = forecast.hourly
+
+        for (i in 0 until h.time.size) {
+            if (h.time[i] == dateTimeLocale) {
+                val weatherCode = h.weathercode[i]
+                val isDaytime = dateTimeLocale.substringAfter('T').substring(0, 2).toInt() in 6..17
+
+                return when (weatherCode) {
+                    0 -> Pair("Clear sky",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sunny)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_nightly)
+                    )
+                    1 -> Pair("Mainly clear",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_small_cloud)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_moon_small_cloud)
+                    )
+                    2 -> Pair("Partly cloudy",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_big_cloud)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_moon_big_cloud)
+                    )
+                    3 -> Pair("Mostly cloudy",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_cloudy_sun)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_cloudy_moon)
+                    )
+                    51 -> Pair("Drizzling lightly",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_drizzle_low)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_moon_drizzle_low)
+                    )
+                    53 -> Pair("Drizzling moderately",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_drizzle_mid)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_moon_drizzle_mid)
+                    )
+                    55 -> Pair("Drizzling heavily",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_drizzle_max)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_moon_drizzle_max)
+                    )
+                    61 -> Pair("Raining slightly",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_rainy_low)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_rainy_low)
+                    )
+                    63 -> Pair("Raining moderately",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_rainy_mid)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_rainy_mid)
+                    )
+                    65 -> Pair("Raining heavily",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_rainy_max)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_rainy_max)
+                    )
+                    80 -> Pair("Showers",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sun_drizzle_max)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_moon_drizzle_max)
+                    )
+                    95, 96 -> Pair("Thunderstorms (lightly)",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sunny_rainy_thunder_mid)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_nightly_rainy_thunder_mid)
+                    )
+                    97 -> Pair("Thunderstorms (heavy)",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sunny_rainy_thunder_max)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_nightly_rainy_thunder_max))
+                    else -> Pair("",
+                        if (isDaytime) ContextCompat.getDrawable(context, R.drawable.ic_sunny)
+                        else ContextCompat.getDrawable(context, R.drawable.ic_nightly))
+                }
+            }
+        }
+
+        return Pair("Unknown weather", null)
     }
 }

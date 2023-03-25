@@ -9,21 +9,23 @@ import android.preference.PreferenceManager
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import com.google.android.gms.location.LocationServices
 import com.minerva.jeeply.databinding.FragmentRoutesBinding
 import com.minerva.jeeply.helper.UtilityManager
+import com.minerva.jeeply.osm.MyCustomLocationNewOverlay
 import com.minerva.jeeply.osm.OSMController
 import org.osmdroid.api.IMapController
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.util.TileSystem
 import org.osmdroid.views.MapView
+import org.osmdroid.views.Projection
+import org.osmdroid.views.overlay.Overlay
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
-import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+import kotlin.math.cos
+import kotlin.math.sin
 
 
 /**
@@ -37,11 +39,13 @@ class RoutesFragment : Fragment() {
     // onDestroyView.
     private val binding get() = _binding!!
 
+    private lateinit var context: Context
+
     private lateinit var utilityManager: UtilityManager
 
     private lateinit var mapView: MapView
-    private lateinit var myLocationNewOverlay: MyLocationNewOverlay
-    lateinit var gpsMyLocationProvider: GpsMyLocationProvider
+    private lateinit var myCustomLocationNewOverlay: MyCustomLocationNewOverlay
+    lateinit var currentLocationProvider: GpsMyLocationProvider
     private var initZoomMarker = false
 
     @SuppressLint("MissingPermission")
@@ -50,6 +54,8 @@ class RoutesFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentRoutesBinding.inflate(inflater, container, false)
+
+        context = requireContext()
 
         utilityManager = UtilityManager(requireContext())
 
@@ -84,19 +90,23 @@ class RoutesFragment : Fragment() {
         val boundingBox = BoundingBox(north, east, south, west)
         mapView.setScrollableAreaLimitDouble(boundingBox)
 
-        myLocationNewOverlay = MyLocationNewOverlay(GpsMyLocationProvider(context), mapView)
-        myLocationNewOverlay.setPersonIcon(drawCircleMarker())
-        myLocationNewOverlay.setPersonHotspot(25.0f, 25.0f)
+        val circleCurrentMarker = OSMController.drawCircleMarker(requireContext())
 
-        myLocationNewOverlay.enableMyLocation()
-        myLocationNewOverlay.enableFollowLocation()
+        myCustomLocationNewOverlay = MyCustomLocationNewOverlay(GpsMyLocationProvider(context), mapView)
+        myCustomLocationNewOverlay.overlayName = "mylocation"
+        myCustomLocationNewOverlay.setPersonIcon(circleCurrentMarker)
+        myCustomLocationNewOverlay.setPersonHotspot(22.25f, 22.25f)
 
-        gpsMyLocationProvider = GpsMyLocationProvider(context)
-        gpsMyLocationProvider.startLocationProvider { location, source ->
+        myCustomLocationNewOverlay.enableMyLocation()
+        myCustomLocationNewOverlay.enableFollowLocation()
+
+        currentLocationProvider = GpsMyLocationProvider(context)
+        currentLocationProvider.startLocationProvider { location, source ->
             if (location != null) {
+                OSMController.location = location
                 if (!initZoomMarker) {
                     mapController.animateTo(GeoPoint(location),17.5, 1550)
-                    OSMController.location = location
+                    removeTemporaryOverlay()
                     initZoomMarker = true
                 }
             }
@@ -105,43 +115,45 @@ class RoutesFragment : Fragment() {
         if (OSMController.location != null) {
             mapController.setCenter(GeoPoint(OSMController.location))
             mapController.setZoom(17.5)
+
+            // TODO: After the app successfully retrieves the saved location,
+            //  implemented a function to create a temporary marker similar to the previous one used,
+            //  and dynamically placed it at the center of the map to optimize the user's map viewing experience.
+            addTemporaryMarker(OSMController.location!!)
         }
 
-        mapView.overlays.add(myLocationNewOverlay)
+        mapView.overlays.add(myCustomLocationNewOverlay)
         mapView.invalidate()
 
         return binding.root
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        gpsMyLocationProvider.stopLocationProvider()
-        _binding = null
+    private fun addTemporaryMarker(location: Location) {
+        val temporaryOverlay = object : Overlay() {
+            override fun draw(canvas: Canvas?, projection: Projection?) {
+                super.draw(canvas, projection)
+                if (canvas != null && projection != null) {
+                    val point = projection.toPixels(GeoPoint(location), null)
+                    val bitmap: Bitmap = OSMController.drawCircleMarker(requireContext())!! // replace with your own marker icon
+                    canvas.drawBitmap(bitmap, point.x.toFloat() - 22.25f, point.y.toFloat() - 22.25f, null)
+                }
+            }
+        }
+        mapView.overlays.add(temporaryOverlay)
+        mapView.invalidate()
     }
 
-    private fun drawCircleMarker(): Bitmap? {
-        val context: Context = requireContext()
-
-        val width = context.resources.getDimensionPixelSize(R.dimen.marker_size) // width of the bitmap
-        val height = context.resources.getDimensionPixelSize(R.dimen.marker_size) // height of the bitmap
-
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-
-        val circleFillPaint = Paint().apply {
-            style = Paint.Style.FILL
-            color = ContextCompat.getColor(context, R.color.md_theme_dark_secondary)
+    private fun removeTemporaryOverlay() {
+        val overlaysToDelete = mapView.overlays.filter { overlay ->
+            !(overlay is MyCustomLocationNewOverlay && overlay.overlayName == "mylocation")
         }
+        mapView.overlays.removeAll(overlaysToDelete)
+        mapView.invalidate()
+    }
 
-        val circleBorderPaint = Paint().apply {
-            style = Paint.Style.STROKE
-            strokeWidth = 8f
-            color = ContextCompat.getColor(context, R.color.md_theme_dark_outline)
-        }
-
-        canvas.drawCircle(width / 2f, height / 2f, (width / 2f) - 4f, circleFillPaint)
-        canvas.drawCircle(width / 2f, height / 2f, (width / 2f) - 4f, circleBorderPaint)
-
-        return bitmap
+    override fun onDestroyView() {
+        super.onDestroyView()
+        currentLocationProvider.stopLocationProvider()
+        _binding = null
     }
 }

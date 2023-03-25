@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.ActivityCompat.requestPermissions
 import androidx.core.content.ContextCompat
@@ -37,12 +38,11 @@ class UtilityManager(private val context: Context) {
     }
 
     fun hasWifi(): Boolean {
-        val network = connectivityManager.activeNetwork
-        val networkCapabilities = connectivityManager.getNetworkCapabilities(network)
-
-        return networkCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
-                (networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                        networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))
+        val networkCapabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+        return networkCapabilities?.run {
+            hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    (hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))
+        } ?: false
     }
 
     private fun checkPermissions(): Boolean {

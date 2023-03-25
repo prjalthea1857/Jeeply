@@ -4,17 +4,14 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.location.Location
-import android.location.LocationListener
 import androidx.core.content.ContextCompat
 import com.minerva.jeeply.R
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Overlay
-import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
-import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
-class CurrentLocationOverlay(private val context: Context, var mapView: MapView, var location: Location) : Overlay() {
+class TemporaryLocationOverlay(private val context: Context, var mapView: MapView, var location: Location) : Overlay() {
     private val marker = Marker(mapView)
     private val circleFillPaint = Paint().apply {
         style = Paint.Style.FILL
