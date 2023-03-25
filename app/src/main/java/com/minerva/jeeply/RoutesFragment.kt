@@ -48,6 +48,9 @@ class RoutesFragment : Fragment() {
     lateinit var currentLocationProvider: GpsMyLocationProvider
     private var initZoomMarker = false
 
+    private lateinit var circleMarkerBitmap: Bitmap
+    private var temporaryOverlay: Overlay? = null
+
     @SuppressLint("MissingPermission")
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -91,11 +94,11 @@ class RoutesFragment : Fragment() {
             val boundingBox = BoundingBox(north, east, south, west)
             mapView.setScrollableAreaLimitDouble(boundingBox)
 
-            val circleCurrentMarker = OSMController.drawCircleMarker(requireContext())
+            circleMarkerBitmap = OSMController.drawCircleMarker(context)!!
 
             myCustomLocationNewOverlay = MyCustomLocationNewOverlay(GpsMyLocationProvider(context), mapView)
             myCustomLocationNewOverlay.overlayName = "mylocation"
-            myCustomLocationNewOverlay.setPersonIcon(circleCurrentMarker)
+            myCustomLocationNewOverlay.setPersonIcon(circleMarkerBitmap)
             myCustomLocationNewOverlay.setPersonHotspot(22.25f, 22.25f)
 
             myCustomLocationNewOverlay.enableMyLocation()
@@ -107,7 +110,7 @@ class RoutesFragment : Fragment() {
                     OSMController.location = location
                     if (!initZoomMarker) {
                         mapController.animateTo(GeoPoint(location),17.5, 1550)
-                        removeTemporaryOverlay()
+                        addOrRemoveTemporaryMarker(OSMController.location!!, false)
                         initZoomMarker = true
                     }
                 }
@@ -117,10 +120,7 @@ class RoutesFragment : Fragment() {
                 mapController.setCenter(GeoPoint(OSMController.location))
                 mapController.setZoom(17.5)
 
-                // TODO: After the app successfully retrieves the saved location,
-                //  implemented a function to create a temporary marker similar to the previous one used,
-                //  and dynamically placed it at the center of the map to optimize the user's map viewing experience.
-                addTemporaryMarker(OSMController.location!!)
+               addOrRemoveTemporaryMarker(OSMController.location!!, true)
             }
 
             mapView.overlays.add(myCustomLocationNewOverlay)
@@ -130,27 +130,27 @@ class RoutesFragment : Fragment() {
         return binding.root
     }
 
-    private fun addTemporaryMarker(location: Location) {
-        val temporaryOverlay = object : Overlay() {
-            override fun draw(canvas: Canvas?, projection: Projection?) {
-                super.draw(canvas, projection)
-                if (canvas != null && projection != null) {
-                    val point = projection.toPixels(GeoPoint(location), null)
-                    val bitmap: Bitmap = OSMController.drawCircleMarker(requireContext())!! // replace with your own marker icon
-                    canvas.drawBitmap(bitmap, point.x.toFloat() - 22.25f, point.y.toFloat() - 22.25f, null)
+    private fun addOrRemoveTemporaryMarker(location: Location, shouldAdd: Boolean) {
+        if (shouldAdd) {
+            temporaryOverlay = object : Overlay() {
+                override fun draw(canvas: Canvas?, projection: Projection?) {
+                    super.draw(canvas, projection)
+                    if (canvas != null && projection != null) {
+                        val point = projection.toPixels(GeoPoint(location), null)
+                        val bitmap: Bitmap = OSMController.drawCircleMarker(context)!! // replace with your own marker icon
+                        canvas.drawBitmap(bitmap, point.x.toFloat() - 22.25f, point.y.toFloat() - 22.25f, null)
+                    }
                 }
             }
+            mapView.overlays.add(temporaryOverlay)
+            mapView.invalidate()
+        } else {
+            val overlaysToDelete = mapView.overlays.filter { overlay ->
+                !(overlay is MyCustomLocationNewOverlay && overlay.overlayName == "mylocation")
+            }
+            mapView.overlays.removeAll(overlaysToDelete)
+            mapView.invalidate()
         }
-        mapView.overlays.add(temporaryOverlay)
-        mapView.invalidate()
-    }
-
-    private fun removeTemporaryOverlay() {
-        val overlaysToDelete = mapView.overlays.filter { overlay ->
-            !(overlay is MyCustomLocationNewOverlay && overlay.overlayName == "mylocation")
-        }
-        mapView.overlays.removeAll(overlaysToDelete)
-        mapView.invalidate()
     }
 
     override fun onDestroyView() {

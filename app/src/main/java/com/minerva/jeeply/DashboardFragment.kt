@@ -10,6 +10,7 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.preference.PreferenceManager
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -27,12 +28,19 @@ import com.minerva.jeeply.openAPIs.Forecast
 import com.google.gson.Gson
 import com.minerva.jeeply.helper.DashboardCache
 import com.minerva.jeeply.helper.Temporal
+import com.minerva.jeeply.osm.OSMController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.osmdroid.api.IMapController
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.BoundingBox
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
@@ -76,23 +84,24 @@ class DashboardFragment : Fragment() {
             // Initialize database
             jeeplyDatabaseHelper = JeeplyDatabaseHelper(context)
 
-            gpsMyLocationProvider = GpsMyLocationProvider(context)
-
             // Toggles day/night mode icons and updates the UI.
             toggleDayNightIcons()
 
             // Display basic greetings based on time quarter.
             startGreetings()
 
+            // Checks the database if it has existing forecast data to display into the UI.
+            findPresetData()
+
             /**
              * Require Location/GPS Access - START
              */
 
-            // Checks the database if it has existing forecast data to display into the UI.
-            findPresetData()
-
+            gpsMyLocationProvider = GpsMyLocationProvider(context)
             gpsMyLocationProvider.startLocationProvider { location, source ->
                 if (location != null) {
+                    OSMController.location = location
+
                     // Displays the current weather information.
                     displayCurrentWeather(location)
 
@@ -139,7 +148,9 @@ class DashboardFragment : Fragment() {
         jeeplyDatabaseHelper.getCurrentForecast().let { forecast ->
             val location = Location("")
             location.latitude = forecast?.latitude!!
-            location.longitude = forecast?.longitude!!
+            location.longitude = forecast.longitude
+
+            OSMController.location = location
 
             // Displays the current weather information.
             displayCurrentWeather(location)
@@ -257,11 +268,16 @@ class DashboardFragment : Fragment() {
             return withContext(Dispatchers.IO) {
                 val client = OkHttpClient()
                 val request = Request.Builder()
-                    .url("https://api.open-meteo.com/v1/forecast?latitude=$latitude&longitude=$longitude&hourly=temperature_2m,weathercode&timezone=auto")
+                    .url("https://api.open-meteo.com/v1/forecast?latitude=%.2f&longitude=%.2f&hourly=temperature_2m,weathercode&timezone=auto".format(latitude, longitude))
                     .build()
                 val response = client.newCall(request).execute()
                 val json = response.body?.string()
-                Gson().fromJson(json, Forecast::class.java)
+
+                // re-correct location parameter for better accuracy
+                val forecast = Gson().fromJson(json, Forecast::class.java)
+                forecast.latitude = latitude
+                forecast.longitude = longitude
+                forecast
             }
         }
 

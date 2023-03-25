@@ -1,8 +1,8 @@
 package com.minerva.jeeply.openAPIs
 
 data class Forecast(
-    val latitude: Double,
-    val longitude: Double,
+    var latitude: Double,
+    var longitude: Double,
     val generationtime_ms: Double,
     val utc_offset_seconds: Int,
     val timezone: String,
