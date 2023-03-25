@@ -10,11 +10,13 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -81,6 +83,18 @@ class DashboardFragment : Fragment() {
 
             // Display basic greetings based on time quarter
             startGreetings()
+
+            jeeplyDatabaseHelper.getCurrentForecast().let { forecast ->
+                val location = Location("")
+                location.latitude = forecast?.latitude!!
+                location.longitude = forecast?.longitude!!
+
+                // Displays the current weather information.
+                displayCurrentWeather(location)
+
+                // Finds the user current address.
+                findMyLocationAddress(location)
+            }
 
             if (UtilityManager.temporal?.dashboardCache != null) {
                 displayCache()
