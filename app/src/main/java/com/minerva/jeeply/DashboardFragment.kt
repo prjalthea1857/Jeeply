@@ -81,24 +81,11 @@ class DashboardFragment : Fragment() {
             // Toggles day/night mode icons and updates the UI.
             toggleDayNightIcons()
 
-            // Display basic greetings based on time quarter
+            // Display basic greetings based on time quarter.
             startGreetings()
 
-            jeeplyDatabaseHelper.getCurrentForecast().let { forecast ->
-                val location = Location("")
-                location.latitude = forecast?.latitude!!
-                location.longitude = forecast?.longitude!!
-
-                // Displays the current weather information.
-                displayCurrentWeather(location)
-
-                // Finds the user current address.
-                findMyLocationAddress(location)
-            }
-
-            if (UtilityManager.temporal?.dashboardCache != null) {
-                displayCache()
-            }
+            // Checks the database if it has existing forecast data to display into the UI.
+            findPresetData()
 
             /**
              * Require Location/GPS Access - START
@@ -142,6 +129,28 @@ class DashboardFragment : Fragment() {
 
         keepRunning = false
         _binding = null
+    }
+
+    /**
+     * This function finds the preset data, displays the current weather information,
+     * and finds the user's current address. If cache exists, it displays it as well.
+     */
+    private fun findPresetData() {
+        jeeplyDatabaseHelper.getCurrentForecast().let { forecast ->
+            val location = Location("")
+            location.latitude = forecast?.latitude!!
+            location.longitude = forecast?.longitude!!
+
+            // Displays the current weather information.
+            displayCurrentWeather(location)
+
+            // Finds the user current address.
+            findMyLocationAddress(location)
+        }
+
+        if (UtilityManager.temporal?.dashboardCache != null) {
+            displayCache()
+        }
     }
 
     /**
