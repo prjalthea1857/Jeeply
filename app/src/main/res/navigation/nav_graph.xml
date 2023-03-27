@@ -7,9 +7,9 @@
 
     <fragment
         android:id="@+id/FirstFragment"
-        android:name="com.minerva.jeeply.DashboardFragment"
+        android:name="com.minerva.jeeply.SocialFragment"
         android:label="@string/first_fragment_label"
-        tools:layout="@layout/fragment_dashboard">
+        tools:layout="@layout/fragment_social">
     </fragment>
 
     <fragment

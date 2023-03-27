@@ -66,4 +66,9 @@
     <color name="md_theme_dark_scrim">#000000</color>
 
     <color name="card_tertiary_theme_color">@color/md_theme_dark_tertiary</color>
+
+    <color name="traffic_status_fast">#84CA50</color>
+    <color name="traffic_status_moderate">#F07D02</color>
+    <color name="traffic_status_heavy">#E60000</color>
+    <color name="traffic_status_gridlock">#9E1313</color>
 </resources>

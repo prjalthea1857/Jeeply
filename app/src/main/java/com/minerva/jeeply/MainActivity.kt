@@ -9,7 +9,6 @@ import androidx.fragment.app.Fragment
 import com.minerva.jeeply.databinding.ActivityMainBinding
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
-
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
@@ -30,8 +29,8 @@ class MainActivity : AppCompatActivity() {
             // by using there id.
             var selectedFragment: Fragment? = null
             when (item.itemId) {
-                R.id.dashboard -> {
-                    selectedFragment = DashboardFragment()
+                R.id.social -> {
+                    selectedFragment = SocialFragment()
                 }
                 R.id.routes -> {
                     selectedFragment = RoutesFragment()
@@ -54,7 +53,7 @@ class MainActivity : AppCompatActivity() {
         // fragment should be shown to the user
         // in this case it is algorithm fragment
         supportFragmentManager.beginTransaction()
-            .replace(R.id.nav_fragment, DashboardFragment()).commit()
+            .replace(R.id.nav_fragment, SocialFragment()).commit()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

@@ -3,9 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
-        android:id="@+id/dashboard"
-        android:title="Dashboard"
-        android:icon="@drawable/ic_dashboard" />
+        android:id="@+id/social"
+        android:title="Social"
+        android:icon="@drawable/ic_social" />
 
     <item
         android:id="@+id/routes"

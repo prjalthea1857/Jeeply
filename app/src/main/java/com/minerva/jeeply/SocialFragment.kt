@@ -17,7 +17,7 @@ import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.minerva.jeeply.databinding.FragmentDashboardBinding
+import com.minerva.jeeply.databinding.FragmentSocialBinding
 import com.minerva.jeeply.openAPIs.Forecast
 import com.google.gson.Gson
 import com.minerva.jeeply.helper.*
@@ -35,9 +35,9 @@ import kotlin.math.roundToInt
 /**
  * A simple [Fragment] subclass as the default destination in the navigation.
  */
-class DashboardFragment : Fragment() {
+class SocialFragment : Fragment() {
 
-    private var _binding: FragmentDashboardBinding? = null
+    private var _binding: FragmentSocialBinding? = null
 
     // This property is only valid between onCreateView and
     // onDestroyView.
@@ -60,7 +60,7 @@ class DashboardFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentDashboardBinding.inflate(inflater, container, false)
+        _binding = FragmentSocialBinding.inflate(inflater, container, false)
 
         if (isAdded) {
             context = requireContext()
@@ -110,16 +110,7 @@ class DashboardFragment : Fragment() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun writePost() {
-        _binding?.root?.setOnTouchListener { v, event ->
-            binding.postEditText.clearFocus()
-            false
-        }
 
-        binding.postEditText.setOnFocusChangeListener { view, hasFocus ->
-            if (!hasFocus) {
-                hideKeyboard()
-            }
-        }
     }
 
     private fun saveToCache(dashboardCache: DashboardCache) {
@@ -150,17 +141,19 @@ class DashboardFragment : Fragment() {
      */
     private fun findPresetData() {
         jeeplyDatabaseHelper.getCurrentForecast().let { forecast ->
-            val location = Location("")
-            location.latitude = forecast?.latitude!!
-            location.longitude = forecast.longitude
+            if (forecast != null) {
+                val location = Location("")
+                location.latitude = forecast.latitude
+                location.longitude = forecast.longitude
 
-            OSMController.location = location
+                OSMController.location = location
 
-            // Displays the current weather information.
-            displayCurrentWeather(location)
+                // Displays the current weather information.
+                displayCurrentWeather(location)
 
-            // Finds the user current address.
-            findMyLocationAddress(location)
+                // Finds the user current address.
+                findMyLocationAddress(location)
+            }
         }
 
         if (UtilityManager.temporal?.dashboardCache != null) {
@@ -183,14 +176,14 @@ class DashboardFragment : Fragment() {
             val color = ContextCompat.getColor(context, R.color.md_theme_light_onPrimary)
 
             setDrawableColor(color, R.drawable.ic_day_and_night, _binding?.weatherIconImageView)
-            binding.postCardView.setCardBackgroundColor(ContextCompat.getColor(context, R.color.md_theme_light_outline))
+            // binding.postCardView.setCardBackgroundColor(ContextCompat.getColor(context, R.color.md_theme_light_outline))
         }
 
         fun dayMode() {
             val color = ContextCompat.getColor(context, R.color.md_theme_dark_onPrimary)
 
             setDrawableColor(color, R.drawable.ic_day_and_night, _binding?.weatherIconImageView)
-            binding.postCardView.setCardBackgroundColor(ContextCompat.getColor(context, R.color.md_theme_dark_onSurfaceVariant))
+            // binding.postCardView.setCardBackgroundColor(ContextCompat.getColor(context, R.color.md_theme_dark_onSurfaceVariant))
         }
 
         val currentNightMode = context.resources?.configuration?.uiMode?.and(
