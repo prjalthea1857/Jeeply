@@ -10,37 +10,24 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.preference.PreferenceManager
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.widget.ImageView
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.minerva.jeeply.databinding.FragmentDashboardBinding
-import com.minerva.jeeply.helper.JeeplyDatabaseHelper
-import com.minerva.jeeply.helper.UtilityManager
 import com.minerva.jeeply.openAPIs.Forecast
 import com.google.gson.Gson
-import com.minerva.jeeply.helper.DashboardCache
-import com.minerva.jeeply.helper.Temporal
+import com.minerva.jeeply.helper.*
 import com.minerva.jeeply.osm.OSMController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.osmdroid.api.IMapController
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.BoundingBox
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
-import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
@@ -93,6 +80,9 @@ class DashboardFragment : Fragment() {
             // Checks the database if it has existing forecast data to display into the UI.
             findPresetData()
 
+            // Initialize write post.
+            writePost()
+
             /**
              * Require Location/GPS Access - START
              */
@@ -116,6 +106,20 @@ class DashboardFragment : Fragment() {
         }
 
         return binding.root
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun writePost() {
+        _binding?.root?.setOnTouchListener { v, event ->
+            binding.postEditText.clearFocus()
+            false
+        }
+
+        binding.postEditText.setOnFocusChangeListener { view, hasFocus ->
+            if (!hasFocus) {
+                hideKeyboard()
+            }
+        }
     }
 
     private fun saveToCache(dashboardCache: DashboardCache) {
@@ -175,24 +179,18 @@ class DashboardFragment : Fragment() {
             imageView?.setImageDrawable(drawable)
         }
 
-        fun setDrawableColor(color: Int, drawableResId: Int, frameLayout: FrameLayout?) {
-            val drawable: Drawable? = ContextCompat.getDrawable(context, drawableResId)
-            drawable?.setTint(color)
-            frameLayout?.foreground = drawable
-        }
-
         fun nightMode() {
             val color = ContextCompat.getColor(context, R.color.md_theme_light_onPrimary)
 
-            setDrawableColor(ContextCompat.getColor(context, R.color.md_theme_light_onPrimary), R.drawable.ic_360_view, _binding?.rotationFrameLayout)
             setDrawableColor(color, R.drawable.ic_day_and_night, _binding?.weatherIconImageView)
+            binding.postCardView.setCardBackgroundColor(ContextCompat.getColor(context, R.color.md_theme_light_outline))
         }
 
         fun dayMode() {
             val color = ContextCompat.getColor(context, R.color.md_theme_dark_onPrimary)
 
-            setDrawableColor(ContextCompat.getColor(context, R.color.md_theme_light_onPrimary), R.drawable.ic_360_view, _binding?.rotationFrameLayout)
             setDrawableColor(color, R.drawable.ic_day_and_night, _binding?.weatherIconImageView)
+            binding.postCardView.setCardBackgroundColor(ContextCompat.getColor(context, R.color.md_theme_dark_onSurfaceVariant))
         }
 
         val currentNightMode = context.resources?.configuration?.uiMode?.and(
