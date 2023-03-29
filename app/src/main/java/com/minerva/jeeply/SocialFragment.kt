@@ -80,6 +80,10 @@ class SocialFragment : Fragment() {
             // Checks the database if it has existing forecast data to display into the UI.
             findPresetData()
 
+            binding.simpleViewFlipper.flipInterval = 5000
+            binding.simpleViewFlipper.isAutoStart = true
+            binding.simpleViewFlipper.startFlipping()
+
             // Initialize write post.
             writePost()
 
@@ -129,6 +133,7 @@ class SocialFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        binding.simpleViewFlipper.stopFlipping()
         gpsMyLocationProvider.stopLocationProvider()
 
         keepRunning = false
