@@ -189,27 +189,6 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content">
 
-                                <ImageView
-                                    android:id="@+id/sampleImageView1"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:scaleType="centerCrop"
-                                    android:src="@drawable/sample1" />
-
-                                <ImageView
-                                    android:id="@+id/sampleImageView2"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:scaleType="centerCrop"
-                                    android:src="@drawable/sample2" />
-
-                                <ImageView
-                                    android:id="@+id/sampleImageView3"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:scaleType="centerCrop"
-                                    android:src="@drawable/sample3" />
-
                             </ViewFlipper>
                         </androidx.cardview.widget.CardView>
 

@@ -13,14 +13,15 @@ import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.BaseAdapter
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.minerva.jeeply.databinding.FragmentSocialBinding
-import com.minerva.jeeply.openAPIs.Forecast
 import com.google.gson.Gson
+import com.minerva.jeeply.databinding.FragmentSocialBinding
 import com.minerva.jeeply.helper.*
+import com.minerva.jeeply.openAPIs.Forecast
 import com.minerva.jeeply.osm.OSMController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -31,6 +32,7 @@ import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
+
 
 /**
  * A simple [Fragment] subclass as the default destination in the navigation.
@@ -54,6 +56,12 @@ class SocialFragment : Fragment() {
     lateinit var gpsMyLocationProvider: GpsMyLocationProvider
 
     var dashboardCache: DashboardCache? = null
+
+    var sampleImages = intArrayOf(
+        R.drawable.sample1,
+        R.drawable.sample2,
+        R.drawable.sample3
+    )
 
     @SuppressLint("MissingPermission")
     override fun onCreateView(
@@ -79,6 +87,14 @@ class SocialFragment : Fragment() {
 
             // Checks the database if it has existing forecast data to display into the UI.
             findPresetData()
+
+            sampleImages.forEach { drawable ->
+                val imageView = ImageView(context) // create a ImageView
+                imageView.scaleType = ImageView.ScaleType.CENTER_CROP
+                imageView.setImageResource(drawable) // set resource image in ImageView
+
+                binding.simpleViewFlipper.addView(imageView)
+            }
 
             binding.simpleViewFlipper.flipInterval = 5000
             binding.simpleViewFlipper.isAutoStart = true
