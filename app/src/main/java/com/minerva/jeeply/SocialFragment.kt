@@ -18,8 +18,6 @@ import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.android.volley.toolbox.JsonObjectRequest
-import com.android.volley.toolbox.Volley
 import com.google.gson.Gson
 import com.minerva.jeeply.databinding.FragmentSocialBinding
 import com.minerva.jeeply.helper.*
@@ -117,7 +115,6 @@ class SocialFragment : Fragment() {
 
                     // Finds the nearby restaurant in current location.
                     findNearbyRestaurants(location)
-
                 }
             }
 
@@ -137,8 +134,8 @@ class SocialFragment : Fragment() {
             val earthRadius = 6371.0 // Earth's radius in kilometers
 
             // radius, in kilometer
-            val dLat = 0.5 / earthRadius
-            val dLon = 0.5 / (earthRadius * cos(Math.PI * lat / 180))
+            val dLat = radius / earthRadius
+            val dLon = radius / (earthRadius * cos(Math.PI * lat / 180))
             val northLat = lat - dLat * 180 / Math.PI
             val southLat = lat + dLat * 180 / Math.PI
             val eastLon = lon - dLon * 180 / Math.PI
@@ -148,6 +145,7 @@ class SocialFragment : Fragment() {
         }
 
         suspend fun getRestaurants(boundingBox: BoundingBox, onRestaurantsLoaded: (List<Restaurant>?) -> Unit) {
+            var restaurants: List<Restaurant>
             withContext(Dispatchers.IO) {
                 val overpassQuery = "[out:json];node[amenity=restaurant](${boundingBox.toOverpassBBoxString()});out;"
                 val overpassUrl = "http://overpass-api.de/api/interpreter?data=" + URLEncoder.encode(overpassQuery, "UTF-8")
@@ -159,17 +157,38 @@ class SocialFragment : Fragment() {
                 val response = client.newCall(request).execute()
                 val json = response.body?.string()
 
-                Log.i("Restaurant", json.toString())
+                val gson = Gson()
+                val data = gson.fromJson(json, Map::class.java)
+                val elements = data["elements"] as List<Map<String, Any>>
+                restaurants = elements.filter { it["type"] == "node" && it["tags"] is Map<*, *> }
+                    .mapNotNull { element ->
+                        val tags = element["tags"] as Map<String, String>
+                        if (tags.containsKey("name")) {
+                            Restaurant(
+                                type = element["type"] as String,
+                                id = element["id"] as Double,
+                                lat = element["lat"] as Double,
+                                lon = element["lon"] as Double,
+                                tags = tags
+                            )
+                        } else {
+                            null
+                        }
+                    }
             }
 
             withContext(Dispatchers.Main) {
-                onRestaurantsLoaded(null)
+                onRestaurantsLoaded(restaurants)
             }
         }
 
         if (!searchRestaurantOnce) {
             lifecycleScope.launch {
-                getRestaurants(findBoundingBox(currentLocation, 1.0)) { _ ->
+                getRestaurants(findBoundingBox(currentLocation, 1.5)) { restaurants ->
+                    restaurants?.forEach { restaurant ->
+                        Log.i("Restaurant Name:", restaurant.tags["name"].toString())
+                    }
+
                     sampleImages.forEach { drawable ->
                         val imageView = ImageView(context) // create a ImageView
                         imageView.scaleType = ImageView.ScaleType.CENTER_CROP
