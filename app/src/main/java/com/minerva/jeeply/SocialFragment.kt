@@ -10,27 +10,35 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.BaseAdapter
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import com.android.volley.toolbox.JsonObjectRequest
+import com.android.volley.toolbox.Volley
 import com.google.gson.Gson
 import com.minerva.jeeply.databinding.FragmentSocialBinding
 import com.minerva.jeeply.helper.*
 import com.minerva.jeeply.openAPIs.Forecast
+import com.minerva.jeeply.openAPIs.Restaurant
 import com.minerva.jeeply.osm.OSMController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONException
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.math.cos
 import kotlin.math.roundToInt
 
 
@@ -88,9 +96,6 @@ class SocialFragment : Fragment() {
             // Checks the database if it has existing forecast data to display into the UI.
             findPresetData()
 
-            //
-            findNearbyRestaurants()
-
             // Initialize write post.
             writePost()
 
@@ -108,6 +113,9 @@ class SocialFragment : Fragment() {
 
                     // Finds the user current address.
                     findMyLocationAddress(location)
+
+                    // Finds the nearby restaurant in current location.
+                    findNearbyRestaurants(location)
                 }
             }
 
@@ -119,7 +127,46 @@ class SocialFragment : Fragment() {
         return binding.root
     }
 
-    private fun findNearbyRestaurants() {
+    private fun findNearbyRestaurants(currentLocation: Location) {
+        fun findBoundingBox(location: Location, radius: Double): BoundingBox {
+            val lat = location.latitude
+            val lon = location.longitude
+
+            val earthRadius = 6371.0 // Earth's radius in kilometers
+
+            // radius, in kilometer
+            val dLat = 0.5 / earthRadius
+            val dLon = 0.5 / (earthRadius * cos(Math.PI * lat / 180))
+            val northLat = lat - dLat * 180 / Math.PI
+            val southLat = lat + dLat * 180 / Math.PI
+            val eastLon = lon - dLon * 180 / Math.PI
+            val westLon = lon + dLon * 180 / Math.PI
+
+            return BoundingBox(northLat, eastLon, southLat, westLon)
+        }
+
+        suspend fun getRestaurants(boundingBox: BoundingBox, onRestaurantsLoaded: (List<Restaurant>) -> Unit) {
+            return withContext(Dispatchers.IO) {
+                val overpassQuery = "[out:json];node[amenity=restaurant](${boundingBox.toOverpassBBoxString()});out;"
+                val overpassUrl = "http://overpass-api.de/api/interpreter?data=" + URLEncoder.encode(overpassQuery, "UTF-8")
+
+                val client = OkHttpClient()
+                val request = Request.Builder()
+                    .url(overpassUrl)
+                    .build()
+                val response = client.newCall(request).execute()
+                val json = response.body?.string()
+
+                Log.i("Restaurant", json.toString())
+            }
+        }
+
+        lifecycleScope.launch {
+            getRestaurants(findBoundingBox(currentLocation, 1.0)) { _ ->
+
+            }
+        }
+
         sampleImages.forEach { drawable ->
             val imageView = ImageView(context) // create a ImageView
             imageView.scaleType = ImageView.ScaleType.CENTER_CROP
@@ -182,6 +229,9 @@ class SocialFragment : Fragment() {
 
                 // Finds the user current address.
                 findMyLocationAddress(location)
+
+                // Finds the nearby restaurant in current location.
+                findNearbyRestaurants(location)
             }
         }
 
@@ -205,14 +255,12 @@ class SocialFragment : Fragment() {
             val color = ContextCompat.getColor(context, R.color.md_theme_light_onPrimary)
 
             setDrawableColor(color, R.drawable.ic_day_and_night, _binding?.weatherIconImageView)
-            // binding.postCardView.setCardBackgroundColor(ContextCompat.getColor(context, R.color.md_theme_light_outline))
         }
 
         fun dayMode() {
             val color = ContextCompat.getColor(context, R.color.md_theme_dark_onPrimary)
 
             setDrawableColor(color, R.drawable.ic_day_and_night, _binding?.weatherIconImageView)
-            // binding.postCardView.setCardBackgroundColor(ContextCompat.getColor(context, R.color.md_theme_dark_onSurfaceVariant))
         }
 
         val currentNightMode = context.resources?.configuration?.uiMode?.and(
