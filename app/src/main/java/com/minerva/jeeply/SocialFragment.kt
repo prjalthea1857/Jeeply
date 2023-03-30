@@ -37,7 +37,6 @@ import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.collections.ArrayList
 import kotlin.math.cos
 import kotlin.math.roundToInt
 
@@ -57,6 +56,8 @@ class SocialFragment : Fragment() {
 
     private var keepRunning = true
     private var lastNightMode: Int? = null
+
+    private var searchRestaurantOnce = false
 
     lateinit var utilityManager: UtilityManager
     lateinit var jeeplyDatabaseHelper: JeeplyDatabaseHelper
@@ -116,6 +117,7 @@ class SocialFragment : Fragment() {
 
                     // Finds the nearby restaurant in current location.
                     findNearbyRestaurants(location)
+
                 }
             }
 
@@ -145,8 +147,8 @@ class SocialFragment : Fragment() {
             return BoundingBox(northLat, eastLon, southLat, westLon)
         }
 
-        suspend fun getRestaurants(boundingBox: BoundingBox, onRestaurantsLoaded: (List<Restaurant>) -> Unit) {
-            return withContext(Dispatchers.IO) {
+        suspend fun getRestaurants(boundingBox: BoundingBox, onRestaurantsLoaded: (List<Restaurant>?) -> Unit) {
+            withContext(Dispatchers.IO) {
                 val overpassQuery = "[out:json];node[amenity=restaurant](${boundingBox.toOverpassBBoxString()});out;"
                 val overpassUrl = "http://overpass-api.de/api/interpreter?data=" + URLEncoder.encode(overpassQuery, "UTF-8")
 
@@ -159,28 +161,34 @@ class SocialFragment : Fragment() {
 
                 Log.i("Restaurant", json.toString())
             }
-        }
 
-        lifecycleScope.launch {
-            getRestaurants(findBoundingBox(currentLocation, 1.0)) { _ ->
-
+            withContext(Dispatchers.Main) {
+                onRestaurantsLoaded(null)
             }
         }
 
-        sampleImages.forEach { drawable ->
-            val imageView = ImageView(context) // create a ImageView
-            imageView.scaleType = ImageView.ScaleType.CENTER_CROP
-            imageView.setImageResource(drawable) // set resource image in ImageView
+        if (!searchRestaurantOnce) {
+            lifecycleScope.launch {
+                getRestaurants(findBoundingBox(currentLocation, 1.0)) { _ ->
+                    sampleImages.forEach { drawable ->
+                        val imageView = ImageView(context) // create a ImageView
+                        imageView.scaleType = ImageView.ScaleType.CENTER_CROP
+                        imageView.setImageResource(drawable) // set resource image in ImageView
 
-            binding.simpleViewFlipper.addView(imageView)
+                        binding.simpleViewFlipper.addView(imageView)
+                    }
+
+                    binding.simpleViewFlipper.animateFirstView = false
+                    binding.simpleViewFlipper.setInAnimation(context, R.anim.slide_in_bottom)
+                    binding.simpleViewFlipper.setOutAnimation(context, R.anim.slide_out_top)
+                    binding.simpleViewFlipper.flipInterval = 5000
+                    binding.simpleViewFlipper.isAutoStart = true
+                    binding.simpleViewFlipper.startFlipping()
+                }
+            }
+
+            searchRestaurantOnce = true
         }
-
-        binding.simpleViewFlipper.animateFirstView = false
-        binding.simpleViewFlipper.setInAnimation(context, R.anim.slide_in_bottom)
-        binding.simpleViewFlipper.setOutAnimation(context, R.anim.slide_out_top)
-        binding.simpleViewFlipper.flipInterval = 5000
-        binding.simpleViewFlipper.isAutoStart = true
-        binding.simpleViewFlipper.startFlipping()
     }
 
     @SuppressLint("ClickableViewAccessibility")
