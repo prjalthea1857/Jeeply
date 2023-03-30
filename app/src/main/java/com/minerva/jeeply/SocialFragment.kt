@@ -88,17 +88,8 @@ class SocialFragment : Fragment() {
             // Checks the database if it has existing forecast data to display into the UI.
             findPresetData()
 
-            sampleImages.forEach { drawable ->
-                val imageView = ImageView(context) // create a ImageView
-                imageView.scaleType = ImageView.ScaleType.CENTER_CROP
-                imageView.setImageResource(drawable) // set resource image in ImageView
-
-                binding.simpleViewFlipper.addView(imageView)
-            }
-
-            binding.simpleViewFlipper.flipInterval = 5000
-            binding.simpleViewFlipper.isAutoStart = true
-            binding.simpleViewFlipper.startFlipping()
+            //
+            findNearbyRestaurants()
 
             // Initialize write post.
             writePost()
@@ -126,6 +117,23 @@ class SocialFragment : Fragment() {
         }
 
         return binding.root
+    }
+
+    private fun findNearbyRestaurants() {
+        sampleImages.forEach { drawable ->
+            val imageView = ImageView(context) // create a ImageView
+            imageView.scaleType = ImageView.ScaleType.CENTER_CROP
+            imageView.setImageResource(drawable) // set resource image in ImageView
+
+            binding.simpleViewFlipper.addView(imageView)
+        }
+
+        binding.simpleViewFlipper.animateFirstView = false
+        binding.simpleViewFlipper.setInAnimation(context, R.anim.slide_in_bottom)
+        binding.simpleViewFlipper.setOutAnimation(context, R.anim.slide_out_top)
+        binding.simpleViewFlipper.flipInterval = 5000
+        binding.simpleViewFlipper.isAutoStart = true
+        binding.simpleViewFlipper.startFlipping()
     }
 
     @SuppressLint("ClickableViewAccessibility")
