@@ -23,7 +23,6 @@ class UtilityManager(private val context: Context) {
     companion object {
         const val PERMISSIONS_REQUEST = 1
         var temporal: Temporal? = null
-
     }
 
     init {

@@ -3,6 +3,8 @@ package com.minerva.jeeply
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import android.location.Address
 import android.location.Geocoder
@@ -10,7 +12,6 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -24,14 +25,16 @@ import com.minerva.jeeply.helper.*
 import com.minerva.jeeply.openAPIs.Forecast
 import com.minerva.jeeply.openAPIs.Restaurant
 import com.minerva.jeeply.osm.OSMController
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONException
+import org.jsoup.Jsoup
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import java.io.ByteArrayInputStream
 import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.*
@@ -42,6 +45,7 @@ import kotlin.math.roundToInt
 /**
  * A simple [Fragment] subclass as the default destination in the navigation.
  */
+@Suppress("NAME_SHADOWING")
 class SocialFragment : Fragment() {
 
     private var _binding: FragmentSocialBinding? = null
@@ -69,6 +73,8 @@ class SocialFragment : Fragment() {
         R.drawable.sample2,
         R.drawable.sample3
     )
+
+    val restaurantPreviewList = ArrayList<Bitmap>()
 
     @SuppressLint("MissingPermission")
     override fun onCreateView(
@@ -111,10 +117,10 @@ class SocialFragment : Fragment() {
                     displayCurrentWeather(location)
 
                     // Finds the user current address.
-                    findMyLocationAddress(location)
+                    val address = findMyLocationAddress(location)
 
                     // Finds the nearby restaurant in current location.
-                    findNearbyRestaurants(location)
+                    findNearbyRestaurants(location, address)
                 }
             }
 
@@ -126,7 +132,66 @@ class SocialFragment : Fragment() {
         return binding.root
     }
 
-    private fun findNearbyRestaurants(currentLocation: Location) {
+    /***
+     * Finds nearby restaurants using the given current location and address
+     */
+    private fun findNearbyRestaurants(currentLocation: Location, address: String) {
+        // Searches and retrieves an image of the given restaurant
+        suspend fun searchRestaurantImage(restaurant: Restaurant): Bitmap? {
+            var bitmap: Bitmap? = null
+
+            return withContext(Dispatchers.IO) {
+                val query = restaurant.tags["name"]?.trim()?.replace(" ", "+") + "+" + address.trim().replace(" ", "+")
+                val url = "https://www.google.com/search?q=$query"
+
+                val doc = Jsoup.connect(url).get()
+
+                doc.allElements.select("script").firstOrNull { it.data().contains("data:image/jpeg;base64,") && it.data().contains("dimg") }
+                    ?.data()?.let { scriptText ->
+                        val regex = Regex("'([^']*)'")
+                        val matchResult = regex.find(scriptText)
+
+                        var previewImageBase64 = ""
+                        if (matchResult != null) {
+                            val searchArray = matchResult.groupValues
+                            searchArray.forEach { search ->
+                                if (search.contains("data:image/jpeg;base64,")) {
+                                    previewImageBase64 = search.removePrefix("data:image/jpeg;base64,")
+                                }
+                            }
+
+                            var decodedByte: ByteArray? = null
+                            var base64String = previewImageBase64
+                            while (decodedByte == null && base64String.isNotEmpty()) {
+                                try {
+                                    // Convert the Base64 string to a byte array
+                                    decodedByte = Base64.getDecoder().decode(base64String)
+                                } catch (ex: Exception) {
+                                    base64String = base64String.dropLast(1)
+                                }
+                            }
+
+                            bitmap = if (decodedByte != null) {
+                                // Create a BitmapFactory.Options object to configure the decoding process
+                                val options = BitmapFactory.Options().apply {
+                                    // Set the inSampleSize to a value greater than 1 to reduce the size of the decoded image
+                                    inSampleSize = 2
+                                    // Set the inPreferredConfig to ARGB_8888 to improve the quality of the decoded image
+                                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                                }
+
+                                BitmapFactory.decodeByteArray(decodedByte, 0, decodedByte.size, options)
+                            } else {
+                                null
+                            }
+                        }
+                    }
+
+                bitmap
+            }
+        }
+
+        // Finds a bounding box around the given location with the given radius
         fun findBoundingBox(location: Location, radius: Double): BoundingBox {
             val lat = location.latitude
             val lon = location.longitude
@@ -144,9 +209,9 @@ class SocialFragment : Fragment() {
             return BoundingBox(northLat, eastLon, southLat, westLon)
         }
 
-        suspend fun getRestaurants(boundingBox: BoundingBox, onRestaurantsLoaded: (List<Restaurant>?) -> Unit) {
-            var restaurants: List<Restaurant>
-            withContext(Dispatchers.IO) {
+        // Retrieves a list of restaurants within the given bounding box
+        suspend fun getRestaurants(boundingBox: BoundingBox): List<Restaurant> {
+            return withContext(Dispatchers.IO) {
                 val overpassQuery = "[out:json];node[amenity=restaurant](${boundingBox.toOverpassBBoxString()});out;"
                 val overpassUrl = "http://overpass-api.de/api/interpreter?data=" + URLEncoder.encode(overpassQuery, "UTF-8")
 
@@ -160,7 +225,7 @@ class SocialFragment : Fragment() {
                 val gson = Gson()
                 val data = gson.fromJson(json, Map::class.java)
                 val elements = data["elements"] as List<Map<String, Any>>
-                restaurants = elements.filter { it["type"] == "node" && it["tags"] is Map<*, *> }
+                val restaurants = elements.filter { it["type"] == "node" && it["tags"] is Map<*, *> }
                     .mapNotNull { element ->
                         val tags = element["tags"] as Map<String, String>
                         if (tags.containsKey("name")) {
@@ -175,34 +240,65 @@ class SocialFragment : Fragment() {
                             null
                         }
                     }
+                restaurants
             }
+        }
 
-            withContext(Dispatchers.Main) {
-                onRestaurantsLoaded(restaurants)
+        // Function to display the previews that have been loaded so far
+        fun displayPreviews(previewList: List<Bitmap>) {
+            binding.simpleViewFlipper.removeAllViews()
+            previewList.forEach { preview ->
+                val imageView = ImageView(context)
+                val params = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                imageView.layoutParams = params
+                binding.simpleViewFlipper.addView(imageView)
+                imageView.scaleType = ImageView.ScaleType.CENTER_CROP
+                imageView.setImageBitmap(preview)
             }
+            binding.simpleViewFlipper.animateFirstView = false
+            binding.simpleViewFlipper.setInAnimation(context, R.anim.slide_in_bottom)
+            binding.simpleViewFlipper.setOutAnimation(context, R.anim.slide_out_top)
+            binding.simpleViewFlipper.flipInterval = 5000
+            binding.simpleViewFlipper.isAutoStart = true
+            binding.simpleViewFlipper.startFlipping()
         }
 
         if (!searchRestaurantOnce) {
             lifecycleScope.launch {
-                getRestaurants(findBoundingBox(currentLocation, 1.5)) { restaurants ->
-                    restaurants?.forEach { restaurant ->
-                        Log.i("Restaurant Name:", restaurant.tags["name"].toString())
+                // Create a coroutine scope for the image loading operations
+                val coroutineScope = CoroutineScope(Dispatchers.Main)
+
+                // Create a list to hold the restaurant previews
+                val restaurantPreviewList = mutableListOf<Bitmap>()
+
+                // Create a HashMap to hold the cached previews
+                val previewCache = HashMap<String, Bitmap>()
+
+                // Get the list of restaurants to fetch images for
+                val restaurants = getRestaurants(findBoundingBox(currentLocation, 1.5))
+
+                // Fetch the previews for each restaurant in sequence
+                for (restaurant in restaurants) {
+                    coroutineScope.launch {
+                        // Check if the preview is already in the cache
+                        var preview = previewCache[restaurant.tags["name"]]
+                        if (preview == null) {
+                            // If not, fetch the preview from the network
+                            preview = withContext(Dispatchers.IO) {
+                                searchRestaurantImage(restaurant)
+                            }
+                            // Cache the preview
+                            preview?.let { previewCache[restaurant.tags["name"]!!] = it }
+                        }
+                        // Add the preview to the list and display the previews
+                        if (preview != null) {
+                            restaurantPreviewList.add(preview)
+                            displayPreviews(restaurantPreviewList)
+                        }
                     }
-
-                    sampleImages.forEach { drawable ->
-                        val imageView = ImageView(context) // create a ImageView
-                        imageView.scaleType = ImageView.ScaleType.CENTER_CROP
-                        imageView.setImageResource(drawable) // set resource image in ImageView
-
-                        binding.simpleViewFlipper.addView(imageView)
-                    }
-
-                    binding.simpleViewFlipper.animateFirstView = false
-                    binding.simpleViewFlipper.setInAnimation(context, R.anim.slide_in_bottom)
-                    binding.simpleViewFlipper.setOutAnimation(context, R.anim.slide_out_top)
-                    binding.simpleViewFlipper.flipInterval = 5000
-                    binding.simpleViewFlipper.isAutoStart = true
-                    binding.simpleViewFlipper.startFlipping()
                 }
             }
 
@@ -255,10 +351,10 @@ class SocialFragment : Fragment() {
                 displayCurrentWeather(location)
 
                 // Finds the user current address.
-                findMyLocationAddress(location)
+                val address = findMyLocationAddress(location)
 
                 // Finds the nearby restaurant in current location.
-                findNearbyRestaurants(location)
+                findNearbyRestaurants(location, address)
             }
         }
 
@@ -432,7 +528,9 @@ class SocialFragment : Fragment() {
     /**
      * Uses reverse geocoding to find the most common location address based on the device's current location.
      */
-    private fun findMyLocationAddress(location: Location) {
+    private fun findMyLocationAddress(location: Location): String {
+        var address = ""
+
         fun getMostCommonLocation(addresses: List<Address>): String {
             val localities = mutableMapOf<String, Int>()
             val subAdminAreas = mutableMapOf<String, Int>()
@@ -484,7 +582,7 @@ class SocialFragment : Fragment() {
         val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 10)
 
         if (addresses!!.isNotEmpty()) {
-            val address = getMostCommonLocation(addresses)
+            address = getMostCommonLocation(addresses)
             binding.locationTextView.text = address
 
             jeeplyDatabaseHelper.getCurrentForecast()?.let { forecast ->
@@ -504,6 +602,8 @@ class SocialFragment : Fragment() {
                 }
             }
         }
+
+        return address
     }
 
     /**
